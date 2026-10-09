@@ -77,7 +77,9 @@ jobs:
         run: node build-exe.js
 
       - name: Setup Inno Setup
-        uses: saucal/action-install-innosetup@v1
+        run: |
+          choco install innosetup --no-progress -y
+          echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
 
       - name: Compile Setup Installer (Inno Setup)
         run: iscc desktop-agent/installer.iss
