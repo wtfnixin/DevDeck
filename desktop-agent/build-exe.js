@@ -8,14 +8,15 @@ const targetPath = path.join(__dirname, 'node_modules', 'better-sqlite3', 'build
 
 console.log('🔄 Preparing Node 22 binary for standalone packaging...');
 try {
-  if (!fs.existsSync(node22Path)) {
-    throw new Error(`Node 22 native binary not found at ${node22Path}`);
+  if (fs.existsSync(node22Path)) {
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(node22Path, targetPath);
+    console.log('✅ Node 22 binary swapped from lib-native successfully.');
+  } else {
+    console.log('🌐 lib-native binary not found, downloading Node 22 native addon via prebuild-install...');
+    execSync('npx prebuild-install --target=22.0.0 --platform=win32 --arch=x64 --runtime=node', { stdio: 'inherit' });
+    console.log('✅ Node 22 native addon downloaded successfully.');
   }
-  
-  // Ensure target folder exists
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  fs.copyFileSync(node22Path, targetPath);
-  console.log('✅ Node 22 binary swapped successfully.');
 
   console.log('📦 Bundling standalone devdeck-agent.exe...');
   execSync('npx @yao-pkg/pkg . --targets node22-win-x64 --output build/devdeck-agent.exe', { stdio: 'inherit' });

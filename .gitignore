@@ -56,8 +56,6 @@ app.*.map.json
 /desktop-agent/.env
 /desktop-agent/devdeck.db
 /desktop-agent/devdeck.db-*
-/desktop-agent/bin/
-/desktop-agent/lib-native/
 /artifacts/pairing-qr.png
 *.db-shm
 *.db-wal
