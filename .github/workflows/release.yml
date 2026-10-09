@@ -71,7 +71,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path desktop-agent/build
           $csc = (Get-ChildItem -Path "C:\Windows\Microsoft.NET\Framework64\v4*" -Filter "csc.exe" -Recurse | Select-Object -First 1).FullName
-          & $csc /target:winexe /out:desktop-agent/build/keypresser.exe desktop-agent/src/utils/keypresser.cs
+          $srcFile = Join-Path $PWD "desktop-agent\src\utils\keypresser.cs"
+          $outFile = Join-Path $PWD "desktop-agent\build\keypresser.exe"
+          & $csc "/target:winexe" "/out:$outFile" "$srcFile"
 
       - name: Compile Standalone Executable
         working-directory: desktop-agent
