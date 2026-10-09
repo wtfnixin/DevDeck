@@ -66,7 +66,17 @@ class SocketService {
 
     _socket!.onConnectError((err) {
       AppLogger.error('Socket connect error: $err');
-      _updateStatus(ConnectionStatus.disconnected);
+      final errMsg = err.toString().toLowerCase();
+      if (errMsg.contains('authenticated') ||
+          errMsg.contains('authentication') ||
+          errMsg.contains('sign') ||
+          errMsg.contains('auth')) {
+        AppLogger.warning('Token rejected by server. Clearing invalid credentials...');
+        _storage.clearPairingData();
+        _updateStatus(ConnectionStatus.pairingRequired);
+      } else {
+        _updateStatus(ConnectionStatus.disconnected);
+      }
     });
 
     _socket!.onReconnectAttempt((attempt) {

@@ -56,7 +56,7 @@ DevDeck is a customizable, open-source productivity remote control suite (simila
    ```bash
    npm run dev
    ```
-   *The agent will spin up on port `8080` and output the active pairing QR code inside the terminal.*
+   *The agent will spin up on port `8081` and output the active pairing QR code inside the terminal.*
 
 ---
 

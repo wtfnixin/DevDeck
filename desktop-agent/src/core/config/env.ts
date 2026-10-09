@@ -6,13 +6,29 @@ import { z } from 'zod';
 
 // Determine the base directory (outside pkg snapshot when packaged)
 const isPackaged = typeof (process as any).pkg !== 'undefined';
-const baseDir = isPackaged ? path.dirname(process.execPath) : path.join(__dirname, '../../../');
+let baseDir: string;
+
+if (isPackaged) {
+  const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME || '', 'Library', 'Application Support') : path.join(process.env.HOME || '', '.config'));
+  baseDir = path.join(appData, 'DevDeck');
+} else {
+  baseDir = path.join(__dirname, '../../../');
+}
+
+if (!fs.existsSync(baseDir)) {
+  try {
+    fs.mkdirSync(baseDir, { recursive: true });
+  } catch (err) {
+    // Ignore if already exists or permission issues
+  }
+}
+
 const envPath = path.join(baseDir, '.env');
 
 // If .env doesn't exist, generate a default one with a secure persistent JWT_SECRET
 if (!fs.existsSync(envPath)) {
   const defaultSecret = crypto.randomBytes(32).toString('hex');
-  const defaultEnvContent = `PORT=8080\nJWT_SECRET=${defaultSecret}\nDATABASE_PATH=devdeck.db\n`;
+  const defaultEnvContent = `PORT=8081\nJWT_SECRET=${defaultSecret}\nDATABASE_PATH=devdeck.db\n`;
   try {
     fs.writeFileSync(envPath, defaultEnvContent, 'utf8');
   } catch (err) {
@@ -30,7 +46,7 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 8) {
 }
 
 const envSchema = z.object({
-  PORT: z.coerce.number().default(8080),
+  PORT: z.coerce.number().default(8081),
   JWT_SECRET: z.string().min(8, 'JWT_SECRET must be at least 8 characters long'),
   DATABASE_PATH: z.string().default('devdeck.db'),
   PAIRING_TOKEN: z.string().optional(),

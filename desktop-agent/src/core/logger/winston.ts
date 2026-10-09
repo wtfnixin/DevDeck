@@ -17,7 +17,14 @@ const consoleFormat = winston.format.combine(
 );
 
 const isPackaged = typeof (process as any).pkg !== 'undefined';
-const logsBaseDir = isPackaged ? path.dirname(process.execPath) : path.join(__dirname, '../../../../');
+let logsBaseDir: string;
+
+if (isPackaged) {
+  const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME || '', 'Library', 'Application Support') : path.join(process.env.HOME || '', '.config'));
+  logsBaseDir = path.join(appData, 'DevDeck');
+} else {
+  logsBaseDir = path.join(__dirname, '../../../../');
+}
 
 export const logger = winston.createLogger({
   level: env.LOG_LEVEL,

@@ -21,7 +21,7 @@ class _PairingPageState extends State<PairingPage> with SingleTickerProviderStat
   final _formKey = GlobalKey<FormState>();
   
   final _hostController = TextEditingController();
-  final _portController = TextEditingController(text: '8080');
+  final _portController = TextEditingController(text: '8081');
   final _tokenController = TextEditingController();
 
   bool _hasCameraPermission = false;

@@ -11,6 +11,7 @@ SetupIconFile=
 
 [Files]
 Source: "build\devdeck-agent.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "build\keypresser.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\DevDeck Agent"; Filename: "{app}\devdeck-agent.exe"

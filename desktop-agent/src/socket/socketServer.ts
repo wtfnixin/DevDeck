@@ -102,7 +102,6 @@ export class SocketServer {
       pingInterval: 5000,
     });
 
-    // Authentication Middleware
     this.io.use((socket, next) => {
       const auth = socket.handshake.auth;
       const token = auth?.token;
@@ -115,8 +114,9 @@ export class SocketServer {
           socket.data.deviceName = result.deviceName;
           return next();
         } else {
-          logger.warn(`Authentication failed: ${result.error}`);
-          return next(new Error('Authentication failed'));
+          logger.warn(`Authentication failed: ${result.error}. Treating as unauthenticated.`);
+          socket.data.authenticated = false;
+          return next();
         }
       }
 
@@ -128,6 +128,15 @@ export class SocketServer {
     // Connection Handler
     this.io.on('connection', (socket) => {
       registerSocketEvents(this.io!, socket);
+    });
+
+    this.server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.error(`❌ Port ${port} is already in use by another program. Please change the PORT in .env or stop the conflicting application.`);
+      } else {
+        logger.error('❌ Server encounter an unexpected error:', err);
+      }
+      process.exit(1);
     });
 
     this.server.listen(port, async () => {

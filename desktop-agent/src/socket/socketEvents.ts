@@ -11,6 +11,7 @@ import { pairingRequestSchema } from '../core/validation/zodSchemas';
 import { appEvents, EVENTS } from '../core/events/eventEmitter';
 import { db } from '../core/database/connection';
 import { exec } from 'child_process';
+import path from 'path';
 
 export function registerSocketEvents(io: Server, socket: Socket): void {
   const isAuth = socket.data.authenticated === true;
@@ -283,6 +284,72 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
         if (callback) callback({ success: false, error: error.message });
       }
     });
+
+    // System controls: Volume Up
+    socket.on('system:volume-up', (callback?: (res: any) => void) => {
+      try {
+        runKeyboardEvent(175, callback);
+      } catch (error: any) {
+        logger.error('system:volume-up error:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // System controls: Volume Down
+    socket.on('system:volume-down', (callback?: (res: any) => void) => {
+      try {
+        runKeyboardEvent(174, callback);
+      } catch (error: any) {
+        logger.error('system:volume-down error:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // System controls: Volume Mute (Silent)
+    socket.on('system:volume-mute', (callback?: (res: any) => void) => {
+      try {
+        runKeyboardEvent(173, callback);
+      } catch (error: any) {
+        logger.error('system:volume-mute error:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // System controls: Brightness Up
+    socket.on('system:brightness-up', (callback?: (res: any) => void) => {
+      try {
+        const cmd = 'powershell -NoProfile -Command "try { \`$cur = (Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightness -ErrorAction Stop).CurrentBrightness; \`$new = [math]::min(100, \`$cur + 10); Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = \`$new } } catch { exit 0 }"';
+        exec(cmd, (err) => {
+          if (err) {
+            logger.error('system:brightness-up failed:', err);
+            if (callback) callback({ success: false, error: err.message });
+          } else {
+            if (callback) callback({ success: true });
+          }
+        });
+      } catch (error: any) {
+        logger.error('system:brightness-up error:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // System controls: Brightness Down
+    socket.on('system:brightness-down', (callback?: (res: any) => void) => {
+      try {
+        const cmd = 'powershell -NoProfile -Command "try { \`$cur = (Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightness -ErrorAction Stop).CurrentBrightness; \`$new = [math]::max(0, \`$cur - 10); Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = \`$new } } catch { exit 0 }"';
+        exec(cmd, (err) => {
+          if (err) {
+            logger.error('system:brightness-down failed:', err);
+            if (callback) callback({ success: false, error: err.message });
+          } else {
+            if (callback) callback({ success: true });
+          }
+        });
+      } catch (error: any) {
+        logger.error('system:brightness-down error:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
     
   } else {
     logger.info(`🔌 Unauthenticated client connected [Socket ID: ${socket.id}]. Awaiting pairing...`);
@@ -344,3 +411,20 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
     };
   }
 }
+
+function runKeyboardEvent(vkCode: number, callback?: (res: any) => void) {
+  const isPackaged = typeof (process as any).pkg !== 'undefined';
+  const keypresserPath = isPackaged 
+    ? path.join(path.dirname(process.execPath), 'keypresser.exe')
+    : path.join(__dirname, '../../build/keypresser.exe');
+
+  exec('"' + keypresserPath + '" ' + vkCode, (err) => {
+    if (err) {
+      logger.error(`Keyboard event ${vkCode} failed:`, err);
+      if (callback) callback({ success: false, error: err.message });
+    } else {
+      if (callback) callback({ success: true });
+    }
+  });
+}
+

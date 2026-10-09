@@ -91,7 +91,7 @@ class _WebsitesLauncherPageState extends State<WebsitesLauncherPage> {
       final uri = Uri.parse(url);
       final domain = uri.host.isNotEmpty ? uri.host : web.url;
       // Use the agent's favicon proxy to avoid CORS issues in Flutter web
-      final agentBase = _socketService.agentBaseUrl ?? 'http://localhost:8080';
+      final agentBase = _socketService.agentBaseUrl ?? 'http://localhost:8081';
       final faviconUrl = '$agentBase/favicon?domain=${Uri.encodeComponent(domain)}&v=1.3';
       return ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -320,34 +320,8 @@ class _WebsitesLauncherPageState extends State<WebsitesLauncherPage> {
                   ),
                 ),
                 Positioned.fill(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        _buildWebIcon(web),
-                        const SizedBox(height: 6),
-                        Text(
-                          web.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black38,
-                                offset: Offset(0, 1),
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: Center(
+                    child: _buildWebIcon(web),
                   ),
                 ),
               ],

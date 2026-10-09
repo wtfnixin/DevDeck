@@ -40,6 +40,29 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
   bool _isLoading = true;
   bool _isEditMode = false;
 
+  Offset? _dragStart;
+  String? _activeGestureFeedback;
+  IconData? _activeGestureIcon;
+  Timer? _feedbackTimer;
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  void _showFeedback(String message, IconData icon) {
+    _feedbackTimer?.cancel();
+    setState(() {
+      _activeGestureFeedback = message;
+      _activeGestureIcon = icon;
+    });
+    _feedbackTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        setState(() {
+          _activeGestureFeedback = null;
+          _activeGestureIcon = null;
+        });
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +86,8 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
     _socketService.off('launcher:apps:updated');
     _socketService.off('launcher:websites:updated');
     _socketService.off('workspace:list:updated');
+    _feedbackTimer?.cancel();
+    _pageController.dispose();
 
     // Restore portrait and landscape support when exiting the Stream Deck
     SystemChrome.setPreferredOrientations([
@@ -424,7 +449,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
         final uri = Uri.parse(url);
         final domain = uri.host.isNotEmpty ? uri.host : key.payload;
         // Use the agent's favicon proxy to avoid CORS issues in Flutter web
-        final agentBase = _socketService.agentBaseUrl ?? 'http://localhost:8080';
+        final agentBase = _socketService.agentBaseUrl ?? 'http://localhost:8081';
         final faviconUrl = '$agentBase/favicon?domain=${Uri.encodeComponent(domain)}&v=1.3';
         return Center(
           child: SizedBox(
@@ -531,55 +556,37 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Expanded(
-                          child: GridView.builder(
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4, // 4 columns
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                              childAspectRatio: aspectRatio,
-                            ),
-                            itemCount: itemCount,
-                            itemBuilder: (context, index) {
-                              if (showAddButton && index == displayKeys.length) {
-                                return _buildAddKeyButton();
-                              }
-                              return _buildStreamKey(displayKeys[index]);
+                          child: PageView(
+                            controller: _pageController,
+                            onPageChanged: (page) {
+                              setState(() {
+                                _currentPage = page;
+                              });
                             },
+                            children: [
+                              _buildShortcutsGrid(displayKeys, showAddButton, itemCount, aspectRatio),
+                              _buildSystemControlsGrid(aspectRatio),
+                              _buildEmptyGrid(aspectRatio),
+                            ],
                           ),
                         ),
-                        // Page indicators matching screenshot (just visual dots)
+                        // Page indicators matching dynamic index
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
+                          children: List.generate(3, (index) {
+                            return Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
                               width: 6,
                               height: 6,
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: _currentPage == index
+                                    ? Colors.white
+                                    : Colors.white.withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(3),
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                            ),
-                          ],
+                            );
+                          }),
                         ),
                       ],
                     ),
@@ -654,29 +661,263 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
               ),
             ),
           ),
+
+          // Gesture Feedback HUD overlay
+          if (_activeGestureFeedback != null)
+            Center(
+              child: Container(
+                width: 160,
+                height: 140,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.75),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.12),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.55),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _activeGestureIcon,
+                          color: Colors.white,
+                          size: 46,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _activeGestureFeedback!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildStreamKey(DeckKey key) {
-    final name = key.name.toLowerCase();
-    final isYouTube = name.contains('youtube');
-    final isGoogle = name.contains('google');
-    final isGenericAction = name.contains('lock') || 
-                            name.contains('record') || 
-                            name.contains('mute') || 
-                            name.contains('volume') || 
-                            name.contains('brightness') || 
-                            name.contains('window') ||
-                            name.contains('screenshot') ||
-                            name.contains('camera') ||
-                            key.iconName.contains('lock') ||
-                            key.iconName.contains('record') ||
-                            key.iconName.contains('mic') ||
-                            key.iconName.contains('volume');
-    final showLabel = !isGenericAction;
+  Widget _buildShortcutsGrid(List<DeckKey> displayKeys, bool showAddButton, int itemCount, double aspectRatio) {
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: aspectRatio,
+      ),
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        if (showAddButton && index == displayKeys.length) {
+          return _buildAddKeyButton();
+        }
+        return _buildStreamKey(displayKeys[index]);
+      },
+    );
+  }
 
+  Widget _buildSystemControlsGrid(double aspectRatio) {
+    final List<Map<String, dynamic>> systemControls = [
+      {
+        'name': 'Volume Up',
+        'icon': Icons.volume_up_rounded,
+        'color': const Color(0xFF6366F1), // Royal Indigo
+        'event': 'system:volume-up',
+      },
+      {
+        'name': 'Volume Down',
+        'icon': Icons.volume_down_rounded,
+        'color': const Color(0xFF6366F1),
+        'event': 'system:volume-down',
+      },
+      {
+        'name': 'Toggle Silent',
+        'icon': Icons.volume_off_rounded,
+        'color': const Color(0xFFEF4444), // Crimson Red
+        'event': 'system:volume-mute',
+      },
+      {
+        'name': 'Brightness Up',
+        'icon': Icons.brightness_high_rounded,
+        'color': const Color(0xFFF59E0B), // Amber Gold
+        'event': 'system:brightness-up',
+      },
+      {
+        'name': 'Brightness Down',
+        'icon': Icons.brightness_low_rounded,
+        'color': const Color(0xFFF59E0B),
+        'event': 'system:brightness-down',
+      },
+    ];
+
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: aspectRatio,
+      ),
+      itemCount: 8,
+      itemBuilder: (context, index) {
+        if (index >= systemControls.length) {
+          return _buildEmptyKeycap();
+        }
+        
+        final ctrl = systemControls[index];
+        return _buildSystemKeycap(
+          name: ctrl['name'] as String,
+          icon: ctrl['icon'] as IconData,
+          color: ctrl['color'] as Color,
+          event: ctrl['event'] as String,
+        );
+      },
+    );
+  }
+
+  Widget _buildSystemKeycap({
+    required String name,
+    required IconData icon,
+    required Color color,
+    required String event,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        _socketService.emit(event, null);
+        _showFeedback(name, icon);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(6.0),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1B1D23),
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.04),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withOpacity(0.08),
+                Colors.white.withOpacity(0.02),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.12),
+              width: 1.5,
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyKeycap() {
+    return Container(
+      padding: const EdgeInsets.all(6.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171C),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.02),
+          width: 1.0,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.02),
+            width: 1.0,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyGrid(double aspectRatio) {
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: aspectRatio,
+      ),
+      itemCount: 8,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Container(
+            padding: const EdgeInsets.all(6.0),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1B1D23),
+              borderRadius: BorderRadius.circular(32),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.02),
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.info_outline_rounded, color: Colors.white24, size: 24),
+                  SizedBox(height: 6),
+                  Text(
+                    'Page 3',
+                    style: TextStyle(color: Colors.white24, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return _buildEmptyKeycap();
+      },
+    );
+  }
+
+  Widget _buildStreamKey(DeckKey key) {
     return Stack(
       fit: StackFit.expand,
       clipBehavior: Clip.none,
@@ -716,26 +957,6 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
                     Positioned.fill(
                       child: _buildKeyIcon(key),
                     ),
-                    
-                    // Top Label (Brand style)
-                    if (showLabel)
-                      Positioned(
-                        top: 8,
-                        left: 10,
-                        right: 10,
-                        child: Text(
-                          key.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isYouTube || isGoogle ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.7),
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),

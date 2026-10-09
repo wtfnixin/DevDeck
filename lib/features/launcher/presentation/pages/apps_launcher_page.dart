@@ -303,34 +303,8 @@ class _AppsLauncherPageState extends State<AppsLauncherPage> {
                   ),
                 ),
                 Positioned.fill(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        _buildAppIcon(app),
-                        const SizedBox(height: 6),
-                        Text(
-                          app.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black38,
-                                offset: Offset(0, 1),
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: Center(
+                    child: _buildAppIcon(app),
                   ),
                 ),
               ],
