@@ -85,7 +85,8 @@ jobs:
           echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
 
       - name: Compile Setup Installer (Inno Setup)
-        run: iscc desktop-agent/installer.iss
+        working-directory: desktop-agent
+        run: iscc installer.iss
 
       - name: Upload Windows Assets
         uses: actions/upload-artifact@v4

@@ -23,16 +23,15 @@ try {
 
 } catch (error) {
   console.error('❌ Build failed:', error.message);
+  process.exit(1);
 } finally {
-  console.log('🔄 Restoring Node 24 binary for local development...');
-  try {
-    if (fs.existsSync(node24Path)) {
+  if (fs.existsSync(node24Path)) {
+    console.log('🔄 Restoring Node 24 binary for local development...');
+    try {
       fs.copyFileSync(node24Path, targetPath);
       console.log('✅ Node 24 binary restored successfully.');
-    } else {
-      console.warn('⚠️ Node 24 native binary not found in backup to restore.');
+    } catch (restoreError) {
+      console.error('❌ Failed to restore Node 24 binary:', restoreError.message);
     }
-  } catch (restoreError) {
-    console.error('❌ Failed to restore Node 24 binary:', restoreError.message);
   }
 }
