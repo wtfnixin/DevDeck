@@ -67,9 +67,17 @@ jobs:
         working-directory: desktop-agent
         run: npm run build
 
+      - name: Compile Keypresser Utility
+        run: |
+          New-Item -ItemType Directory -Force -Path desktop-agent/build
+          Add-Type -TypeDefinition (Get-Content desktop-agent/src/utils/keypresser.cs -Raw) -OutputAssembly desktop-agent/build/keypresser.exe -OutputType WindowsCommandLineApplication
+
       - name: Compile Standalone Executable
         working-directory: desktop-agent
-        run: npx @yao-pkg/pkg . --targets node22-win-x64 --output build/devdeck-agent.exe
+        run: node build-exe.js
+
+      - name: Setup Inno Setup
+        uses: saucal/action-install-innosetup@v1
 
       - name: Compile Setup Installer (Inno Setup)
         run: iscc desktop-agent/installer.iss
