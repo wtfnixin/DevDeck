@@ -70,7 +70,7 @@ jobs:
       - name: Compile Keypresser Utility
         run: |
           New-Item -ItemType Directory -Force -Path desktop-agent/build
-          Add-Type -TypeDefinition (Get-Content desktop-agent/src/utils/keypresser.cs -Raw) -OutputAssembly desktop-agent/build/keypresser.exe -OutputType WindowsCommandLineApplication
+          Add-Type -TypeDefinition (Get-Content desktop-agent/src/utils/keypresser.cs -Raw) -OutputAssembly desktop-agent/build/keypresser.exe -OutputType ConsoleApplication
 
       - name: Compile Standalone Executable
         working-directory: desktop-agent
