@@ -70,7 +70,8 @@ jobs:
       - name: Compile Keypresser Utility
         run: |
           New-Item -ItemType Directory -Force -Path desktop-agent/build
-          Add-Type -TypeDefinition (Get-Content desktop-agent/src/utils/keypresser.cs -Raw) -OutputAssembly desktop-agent/build/keypresser.exe -OutputType ConsoleApplication
+          $csc = (Get-ChildItem -Path "C:\Windows\Microsoft.NET\Framework64\v4*" -Filter "csc.exe" -Recurse | Select-Object -First 1).FullName
+          & $csc /target:winexe /out:desktop-agent/build/keypresser.exe desktop-agent/src/utils/keypresser.cs
 
       - name: Compile Standalone Executable
         working-directory: desktop-agent
