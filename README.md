@@ -14,6 +14,15 @@ DevDeck is a customizable, open-source productivity remote control suite (simila
 
 ---
 
+## 🚀 Latest Updates (v1.1.0)
+* **Physical Hardware Deck Aesthetic**: 3D recessed keycaps and pagination controls.
+* **Icon-First Launchers**: Cleaned up button faces and centered icons without cluttered text.
+* **Desktop Agent Port `8081`**: Avoids Windows system service conflicts on `8080`.
+* **AppData Persistence**: Config and logs properly stored in `%APPDATA%\DevDeck`.
+
+---
+
+
 ## Key Features
 
 *   **Secure Device Pairing**: Instant connection setup using scanned QR Codes. No manual IP typing required.
