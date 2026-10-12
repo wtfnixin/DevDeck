@@ -1,6 +1,8 @@
 import { Server } from 'socket.io';
 import http from 'http';
 import https from 'https';
+import fs from 'fs';
+import path from 'path';
 import { URL } from 'url';
 import { env } from '../core/config/env';
 import { logger } from '../core/logger/winston';
@@ -8,6 +10,7 @@ import { TrustedDeviceService } from '../authentication/trustedDeviceService';
 import { registerSocketEvents } from './socketEvents';
 import { PairingService } from '../authentication/pairingService';
 import { ClipboardService } from '../services/clipboardService';
+
 
 function proxyFavicon(domain: string, res: http.ServerResponse, currentUrl?: string, depth = 0): void {
   if (depth > 5) {
@@ -71,13 +74,18 @@ export class SocketServer {
     this.server = http.createServer((req, res) => {
       // CORS preflight
       if (req.method === 'OPTIONS') {
-        res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET' });
+        res.writeHead(204, { 
+          'Access-Control-Allow-Origin': '*', 
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization' 
+        });
         res.end();
         return;
       }
 
-      // Favicon proxy endpoint: GET /favicon?domain=open.spotify.com
       const reqUrl = new URL(req.url || '/', `http://localhost:${port}`);
+
+      // Favicon proxy endpoint: GET /favicon?domain=open.spotify.com
       if (reqUrl.pathname === '/favicon') {
         const domain = reqUrl.searchParams.get('domain');
         if (domain) {
@@ -89,6 +97,64 @@ export class SocketServer {
         return;
       }
 
+      // API: Get QR Code Data URL
+      if (reqUrl.pathname === '/api/qr-code' || reqUrl.pathname === '/api/pairing/qr') {
+        PairingService.getQRCodeDataUrl(port)
+          .then((dataUrl) => {
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ 
+              success: true, 
+              dataUrl, 
+              qrCode: dataUrl,
+              pairingToken: PairingService.getActivePairingToken() || ''
+            }));
+          })
+          .catch((err) => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: err.message }));
+          });
+        return;
+      }
+
+      // API: Get Agent Status & Network Info
+      if (reqUrl.pathname === '/api/status') {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({
+          status: 'running',
+          port,
+          ips: PairingService.getLocalIPAddresses(),
+          token: PairingService.getActivePairingToken(),
+        }));
+        return;
+      }
+
+      // Serve static frontend files from 'public' directory
+      let publicDir = path.join(__dirname, '../../public');
+      if (!fs.existsSync(publicDir)) {
+        publicDir = path.join(process.cwd(), 'public');
+      }
+
+      let filePath = reqUrl.pathname === '/' ? '/index.html' : reqUrl.pathname;
+      const safePath = path.normalize(path.join(publicDir, filePath));
+
+      if (safePath.startsWith(publicDir) && fs.existsSync(safePath) && fs.statSync(safePath).isFile()) {
+        const ext = path.extname(safePath).toLowerCase();
+        const mimeTypes: Record<string, string> = {
+          '.html': 'text/html; charset=utf-8',
+          '.css': 'text/css; charset=utf-8',
+          '.js': 'application/javascript; charset=utf-8',
+          '.png': 'image/png',
+          '.svg': 'image/svg+xml',
+          '.json': 'application/json',
+          '.ico': 'image/x-icon',
+        };
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache' });
+        fs.createReadStream(safePath).pipe(res);
+        return;
+      }
+
+      // Fallback
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.end('DevDeck Agent is running.\n');
     });
@@ -104,6 +170,21 @@ export class SocketServer {
 
     this.io.use((socket, next) => {
       const auth = socket.handshake.auth;
+      const clientAddress = socket.handshake.address;
+      const isLoopback = clientAddress === '127.0.0.1' || 
+                         clientAddress === '::1' || 
+                         clientAddress === '::ffff:127.0.0.1' || 
+                         clientAddress.includes('127.0.0.1');
+
+      // Desktop GUI client loopback bypass
+      if (auth?.clientType === 'desktop-gui' && isLoopback) {
+        socket.data.authenticated = true;
+        socket.data.isLocalGui = true;
+        socket.data.deviceId = 'local-desktop-gui';
+        socket.data.deviceName = 'DevDeck Dashboard';
+        return next();
+      }
+
       const token = auth?.token;
 
       if (token) {
@@ -124,6 +205,7 @@ export class SocketServer {
       socket.data.authenticated = false;
       return next();
     });
+
 
     // Connection Handler
     this.io.on('connection', (socket) => {

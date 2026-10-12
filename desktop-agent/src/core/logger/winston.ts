@@ -1,6 +1,43 @@
 import winston from 'winston';
 import path from 'path';
+import { EventEmitter } from 'events';
 import { env } from '../config/env';
+import Transport from 'winston-transport';
+
+export interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+  stack?: string;
+}
+
+export const logEvents = new EventEmitter();
+const MAX_LOG_BUFFER = 500;
+export const logBuffer: LogEntry[] = [];
+
+class EventLogTransport extends Transport {
+  constructor(opts?: Transport.TransportStreamOptions) {
+    super(opts);
+  }
+
+  log(info: any, callback: () => void) {
+    setImmediate(() => {
+      const entry: LogEntry = {
+        timestamp: info.timestamp || new Date().toISOString(),
+        level: info.level || 'info',
+        message: typeof info.message === 'string' ? info.message : JSON.stringify(info.message),
+        stack: info.stack,
+      };
+
+      if (logBuffer.length >= MAX_LOG_BUFFER) {
+        logBuffer.shift();
+      }
+      logBuffer.push(entry);
+      logEvents.emit('log', entry);
+    });
+    callback();
+  }
+}
 
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
@@ -40,5 +77,7 @@ export const logger = winston.createLogger({
     new winston.transports.File({
       filename: path.join(logsBaseDir, 'logs/combined.log'),
     }),
+    new EventLogTransport(),
   ],
 });
+

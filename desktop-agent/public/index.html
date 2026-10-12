@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevDeck Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="window-shell">
+    
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="brand">
+          <svg class="brand-icon" width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#55B9AA"/>
+          </svg>
+          <span class="brand-text">DevDeck Agent</span>
+        </div>
+
+        <nav class="nav-menu">
+          <button class="nav-item active" data-page="page-pairing">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+            <span>Pairing</span>
+          </button>
+
+          <button class="nav-item" data-page="page-apps">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="6" width="20" height="12" rx="4"/>
+              <path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/>
+            </svg>
+            <span>Deck Apps</span>
+          </button>
+
+          <button class="nav-item" data-page="page-terminal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 17 10 11 4 5"/>
+              <line x1="12" y1="19" x2="20" y2="19"/>
+            </svg>
+            <span>Terminal</span>
+          </button>
+
+          <button class="nav-item" data-page="page-settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span>Settings</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <span class="version-label">v1.0.0</span>
+      </div>
+    </aside>
+
+    <!-- MAIN BODY -->
+    <div class="main-body">
+      
+      <!-- TOP STATUS BAR -->
+      <header class="topbar">
+        <div class="server-status">
+          <span class="status-indicator-dot"></span>
+          <span class="status-indicator-text" id="top-status-text">Server Running :8081</span>
+        </div>
+
+        <div class="window-controls">
+          <button class="win-btn win-min" id="win-min-btn" title="Minimize">−</button>
+          <button class="win-btn win-max" id="win-max-btn" title="Maximize">□</button>
+          <button class="win-btn win-close" id="win-close-btn" title="Close to Tray">✕</button>
+        </div>
+      </header>
+
+      <!-- SCROLLABLE CONTENT WITH TAB PAGES -->
+      <main class="content-scroll">
+        
+        <!-- ========================================================
+             PAGE 1: PAIRING & CONNECTION HUB
+             ======================================================== -->
+        <div class="page-view active" id="page-pairing">
+          
+          <!-- Pairing Card -->
+          <section class="card" id="card-pairing">
+            <div class="card-title-row">
+              <div class="title-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#55B9AA" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                </svg>
+              </div>
+              <div class="title-text">
+                <h2>Pairing & Connection Hub</h2>
+                <p>Scan the QR code with your DevDeck mobile device to pair, or use the connection details below.</p>
+              </div>
+            </div>
+
+            <div class="pairing-columns">
+              <!-- QR Frame Box -->
+              <div class="qr-preview-box">
+                <div class="qr-white-frame">
+                  <img id="qr-image" src="" alt="Pairing QR Code" style="display: none;" />
+                  <div class="qr-loading-spinner" id="qr-spinner"></div>
+                  <div class="qr-fallback-placeholder" id="qr-fallback" style="display: none;">
+                    <span>Tap to load QR</span>
+                  </div>
+                </div>
+                <span class="qr-caption">QR CODE PREVIEW</span>
+              </div>
+
+              <!-- Detail Rows -->
+              <div class="connection-details">
+                <!-- Row 1: Host IP -->
+                <div class="detail-panel">
+                  <div class="panel-left">
+                    <div class="panel-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                      </svg>
+                    </div>
+                    <div class="panel-info">
+                      <span class="panel-label">Host IP</span>
+                      <span class="panel-value" id="host-ip-val">192.168.1.105:8081</span>
+                    </div>
+                  </div>
+                  <button class="action-copy-btn" id="copy-ip-btn" title="Copy Host IP">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Row 2: Pairing Token -->
+                <div class="detail-panel">
+                  <div class="panel-left">
+                    <div class="panel-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="2">
+                        <path d="M21 2l-2 2m-1.5 1.5L16 7l-1.5-1.5L13 7l-1.5-1.5L10 7"/>
+                        <circle cx="7.5" cy="16.5" r="4.5"/>
+                      </svg>
+                    </div>
+                    <div class="panel-info">
+                      <span class="panel-label">Pairing Token</span>
+                      <span class="panel-value" id="pairing-token-val">a8f4...e9</span>
+                    </div>
+                  </div>
+                  <button class="action-copy-btn" id="copy-token-btn" title="Copy Token">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Row 3: Active Devices -->
+                <div class="detail-panel">
+                  <div class="panel-left">
+                    <div class="panel-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                      </svg>
+                    </div>
+                    <div class="panel-info">
+                      <span class="panel-label">Active Devices</span>
+                      <div class="connected-indicator">
+                        <span class="teal-dot"></span>
+                        <span class="panel-value" id="connected-count-val">1 Connected</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </section>
+
+          <!-- Live Agent Terminal (Compact Monitor on Pairing page) -->
+          <section class="card" id="card-pairing-terminal">
+            <div class="terminal-card-header">
+              <div class="card-title-row" style="margin-bottom: 0;">
+                <div class="title-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="2">
+                    <polyline points="4 17 10 11 4 5"/>
+                    <line x1="12" y1="19" x2="20" y2="19"/>
+                  </svg>
+                </div>
+                <div class="title-text">
+                  <h2>Live Agent Terminal</h2>
+                </div>
+              </div>
+
+              <div class="terminal-actions">
+                <button class="terminal-ctrl-btn" id="pairing-view-all-logs-btn">
+                  <span>View Full Logs →</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Inset Dark Terminal Output -->
+            <div class="terminal-inset-panel" id="terminal-screen-compact">
+              <div class="log-entry">
+                <span class="log-ts">[22:45:01]</span>
+                <span class="log-tag info">INFO</span>
+                <span class="log-sep">:</span>
+                <span class="log-ico">🚀</span>
+                <span class="log-text">Socket.IO Server running on port 8081</span>
+              </div>
+              <div class="log-entry">
+                <span class="log-ts">[22:45:04]</span>
+                <span class="log-tag info">INFO</span>
+                <span class="log-sep">:</span>
+                <span class="log-ico">📱</span>
+                <span class="log-text">Client authenticated: Pixel 8 Pro</span>
+              </div>
+              <div class="log-entry">
+                <span class="log-ts">[22:45:10]</span>
+                <span class="log-tag info">INFO</span>
+                <span class="log-sep">:</span>
+                <span class="log-ico">📋</span>
+                <span class="log-text">Clipboard synced with remote device</span>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ========================================================
+             PAGE 2: DECK APPS (DRAG & DROP + ALL REGISTERED APPS)
+             ======================================================== -->
+        <div class="page-view" id="page-apps">
+          
+          <!-- Card 1: Drag & Drop Area -->
+          <section class="card" id="card-apps-dropzone">
+            <div class="card-title-row">
+              <div class="title-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#55B9AA" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <div class="title-text">
+                <h2>Drag & Drop Application Manager</h2>
+                <p>Drop an executable file (.exe) or desktop shortcut (.lnk) here to register it on DevDeck.</p>
+              </div>
+            </div>
+
+            <!-- Large Drop Target Zone -->
+            <div class="drop-target-area" id="drop-target-zone">
+              <input type="file" id="file-picker-input" accept=".exe,.lnk,.bat,.cmd" style="display: none;" />
+              <div class="drop-folder-icon">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="1.8">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <div class="drop-primary-text">Drop executable / shortcut here to register</div>
+              <div class="drop-secondary-text">Supports .exe, .lnk, or application shortcuts — or click to browse</div>
+            </div>
+
+            <!-- Category Chips Row -->
+            <div class="categories-row">
+              <span class="categories-label">Assign Category:</span>
+              <div class="chips-container" id="category-chips">
+                <button class="category-chip active" data-category="Developer">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#55B9AA" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6"/>
+                    <polyline points="8 6 2 12 8 18"/>
+                  </svg>
+                  <span>Developer</span>
+                  <span class="chip-count" id="count-dev">(3)</span>
+                </button>
+
+                <button class="category-chip" data-category="Utility">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="2">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                  </svg>
+                  <span>Utility</span>
+                  <span class="chip-count" id="count-util">(2)</span>
+                </button>
+
+                <button class="category-chip" data-category="Media">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <span>Media</span>
+                  <span class="chip-count" id="count-media">(1)</span>
+                </button>
+
+                <button class="category-chip" data-category="ALL">
+                  <span>Show All</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Card 2: Registered Applications Full List/Grid -->
+          <section class="card" id="card-apps-list">
+            <div class="apps-header-row">
+              <div class="apps-header-left">
+                <div class="card-title-row" style="margin-bottom: 0;">
+                  <div class="title-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="2">
+                      <rect x="2" y="6" width="20" height="12" rx="4"/>
+                      <path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/>
+                    </svg>
+                  </div>
+                  <div class="title-text">
+                    <h2>Registered Deck Applications</h2>
+                    <p>All applications synced with your DevDeck remote controller.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="apps-header-actions">
+                <div class="search-input-wrapper">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input type="text" id="app-search-input" placeholder="Filter applications..." />
+                </div>
+                <button class="terminal-ctrl-btn" id="scan-apps-btn" title="Scan PC for installed applications">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="m4.93 4.93 4.24 4.24"/>
+                    <path d="m14.83 9.17 4.24-4.24"/>
+                    <path d="m14.83 14.83 4.24 4.24"/>
+                    <path d="m9.17 14.83-4.24 4.24"/>
+                  </svg>
+                  <span>Auto-Detect Apps</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Full Grid of App Cards -->
+            <div class="apps-full-grid" id="apps-full-grid">
+              <!-- Dynamically populated via JS -->
+            </div>
+
+            <!-- Empty State -->
+            <div class="apps-empty-state" id="apps-empty-state" style="display: none;">
+              <div class="empty-icon">📂</div>
+              <h3>No applications in this category</h3>
+              <p>Drag and drop an executable (.exe) or shortcut (.lnk) above to register it.</p>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ========================================================
+             PAGE 3: LIVE AGENT TERMINAL (FULL VIEW)
+             ======================================================== -->
+        <div class="page-view" id="page-terminal">
+          <section class="card" id="card-terminal-full" style="height: 100%; display: flex; flex-direction: column;">
+            <div class="terminal-card-header">
+              <div class="card-title-row" style="margin-bottom: 0;">
+                <div class="title-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#55B9AA" stroke-width="2">
+                    <polyline points="4 17 10 11 4 5"/>
+                    <line x1="12" y1="19" x2="20" y2="19"/>
+                  </svg>
+                </div>
+                <div class="title-text">
+                  <h2>Live Agent Terminal</h2>
+                  <p>Real-time event logging, protocol handshakes, and system diagnostic logs.</p>
+                </div>
+              </div>
+
+              <div class="terminal-actions">
+                <!-- Filter Dropdown -->
+                <div class="custom-select-wrapper">
+                  <select id="terminal-filter-full" class="custom-select">
+                    <option value="ALL">Filter: All</option>
+                    <option value="INFO">Filter: INFO</option>
+                    <option value="WARN">Filter: WARN</option>
+                    <option value="ERROR">Filter: ERROR</option>
+                  </select>
+                </div>
+
+                <!-- Auto-scroll checkbox -->
+                <label class="custom-checkbox-label">
+                  <input type="checkbox" id="terminal-autoscroll-full" checked />
+                  <span class="checkbox-visual"></span>
+                  <span>Auto-scroll</span>
+                </label>
+
+                <!-- Clear button -->
+                <button class="terminal-ctrl-btn" id="terminal-clear-full-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  <span>Clear</span>
+                </button>
+
+                <!-- Copy Logs button -->
+                <button class="terminal-ctrl-btn" id="terminal-copy-full-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  <span>Copy Logs</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Inset Full-Height Dark Terminal Output -->
+            <div class="terminal-inset-panel terminal-full-height" id="terminal-screen-full">
+              <!-- Logs populated via JS -->
+            </div>
+          </section>
+        </div>
+
+        <!-- ========================================================
+             PAGE 4: SETTINGS
+             ======================================================== -->
+        <div class="page-view" id="page-settings">
+          <section class="card" id="card-settings-view">
+            <div class="card-title-row">
+              <div class="title-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#55B9AA" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </div>
+              <div class="title-text">
+                <h2>Agent Settings & Network Configuration</h2>
+                <p>Manage connection parameters and paired client security.</p>
+              </div>
+            </div>
+
+            <div class="connection-details" style="margin-top: 16px;">
+              <div class="detail-panel">
+                <div class="panel-left">
+                  <div class="panel-info">
+                    <span class="panel-label">HTTP & WebSocket Port</span>
+                    <span class="panel-value">8081</span>
+                  </div>
+                </div>
+                <span class="panel-label" style="color: #55B9AA;">Active</span>
+              </div>
+
+              <div class="detail-panel">
+                <div class="panel-left">
+                  <div class="panel-info">
+                    <span class="panel-label">Pairing Security</span>
+                    <span class="panel-value">Token Authentication + JWT Device Tokens</span>
+                  </div>
+                </div>
+                <button class="terminal-ctrl-btn" id="regenerate-token-btn">
+                  <span>Regenerate Token</span>
+                </button>
+              </div>
+
+              <div class="detail-panel">
+                <div class="panel-left">
+                  <div class="panel-info">
+                    <span class="panel-label">Paired Mobile Devices</span>
+                    <span class="panel-value" id="settings-devices-summary">1 Authorized Device</span>
+                  </div>
+                </div>
+                <button class="terminal-ctrl-btn" id="revoke-devices-btn" style="color: #EF4444;">
+                  <span>Revoke All Devices</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- Toast Notification Overlay -->
+    <div class="toast-hub" id="toast-hub"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

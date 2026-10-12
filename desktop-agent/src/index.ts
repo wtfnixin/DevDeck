@@ -3,7 +3,7 @@ import { runMigrations } from './core/database/migrations';
 import { SocketServer } from './socket/socketServer';
 import { PairingService } from './authentication/pairingService';
 
-async function bootstrap() {
+export async function bootstrap() {
   try {
     logger.info('🚀 Starting DevDeck Desktop Agent...');
 
@@ -27,10 +27,14 @@ async function bootstrap() {
     process.on('SIGINT', () => handleShutdown('SIGINT'));
     process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 
+    return server;
   } catch (error) {
     logger.error('💥 DevDeck Agent failed to start:', error);
     process.exit(1);
   }
 }
 
-bootstrap();
+if (require.main === module) {
+  bootstrap();
+}
+

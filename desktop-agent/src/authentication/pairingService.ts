@@ -101,7 +101,23 @@ export class PairingService {
     }
   }
 
+  public static async getQRCodeDataUrl(port: number): Promise<string> {
+    const token = this.getActivePairingToken() || this.generatePairingToken();
+    const localIPs = this.getLocalIPAddresses();
+    const host = localIPs[0] || '127.0.0.1';
+    const pairingUri = `devdeck://pair?host=${host}&port=${port}&token=${token}`;
+    return await QRCode.toDataURL(pairingUri, {
+      color: {
+        dark: '#0f172a',
+        light: '#ffffff',
+      },
+      width: 280,
+      margin: 1,
+    });
+  }
+
   public static verifyPairingRequest(deviceId: string, deviceName: string, token: string): { success: boolean; jwt?: string; error?: string } {
+
     const activeToken = this.getActivePairingToken();
     
     if (!activeToken) {

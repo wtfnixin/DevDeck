@@ -240,13 +240,19 @@ export class AppRegistryService {
       if (countRow.count === 0) {
         logger.info('🌱 Seeding default apps...');
         const defaults = [
-          { name: 'Notepad', executablePath: 'notepad.exe', icon: 'description', category: 'Utility' },
-          { name: 'Calculator', executablePath: 'calc.exe', icon: 'calculate', category: 'Utility' },
+          { name: 'Visual Studio Code', executablePath: 'code.cmd', icon: 'code', category: 'Developer' },
           { name: 'Command Prompt', executablePath: 'cmd.exe', icon: 'terminal', category: 'Developer' },
-          { name: 'Task Manager', executablePath: 'taskmgr.exe', icon: 'assessment', category: 'System' }
+          { name: 'Calculator', executablePath: 'calc.exe', icon: 'calculate', category: 'Utility' },
+          { name: 'Notepad', executablePath: 'notepad.exe', icon: 'description', category: 'Utility' },
+          { name: 'Task Manager', executablePath: 'taskmgr.exe', icon: 'assessment', category: 'Utility' },
+          { name: 'Spotify / Media Player', executablePath: 'spotify.exe', icon: 'music_note', category: 'Media' }
         ];
         for (const app of defaults) {
-          this.registerApp(app);
+          try {
+            this.registerApp(app);
+          } catch (e) {
+            // continue if single app fails
+          }
         }
       }
     } catch (error) {

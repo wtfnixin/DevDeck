@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { logger } from '../core/logger/winston';
+import { logger, logEvents, logBuffer, LogEntry } from '../core/logger/winston';
 import { PairingService } from '../authentication/pairingService';
 import { TrustedDeviceService } from '../authentication/trustedDeviceService';
 import { AppRegistryService } from '../services/appRegistryService';
@@ -7,9 +7,12 @@ import { WebsiteRegistryService } from '../services/websiteRegistryService';
 import { ClipboardService } from '../services/clipboardService';
 import { WorkspaceService } from '../services/workspaceService';
 import { AppDiscoveryService } from '../services/appDiscoveryService';
+import { DeviceRepository } from '../repositories/deviceRepository';
+import { ShortcutResolver } from '../utils/shortcutResolver';
 import { pairingRequestSchema } from '../core/validation/zodSchemas';
 import { appEvents, EVENTS } from '../core/events/eventEmitter';
 import { db } from '../core/database/connection';
+import { env } from '../core/config/env';
 import { exec } from 'child_process';
 import path from 'path';
 
@@ -21,11 +24,25 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
     socket.emit('connection:status', { status: 'connected', deviceName: socket.data.deviceName });
     appEvents.emit(EVENTS.DEVICE_CONNECTED, { deviceId: socket.data.deviceId, socketId: socket.id });
 
+    // Stream logs to local GUI client
+    if (socket.data.isLocalGui) {
+      socket.emit('logs:history', { logs: logBuffer });
+      const logHandler = (entry: LogEntry) => {
+        socket.emit('logs:stream', entry);
+      };
+      logEvents.on('log', logHandler);
+
+      socket.on('disconnect', () => {
+        logEvents.off('log', logHandler);
+      });
+    }
+
     // Handle authenticated disconnect
     socket.on('disconnect', (reason) => {
       logger.info(`🔌 Client disconnected: ${socket.data.deviceName} (${socket.data.deviceId}) [Reason: ${reason}]`);
       appEvents.emit(EVENTS.DEVICE_DISCONNECTED, { deviceId: socket.data.deviceId, socketId: socket.id });
     });
+
 
     // Clipboard Sync
     socket.on('clipboard:sync', (payload: { content: string }) => {
@@ -130,6 +147,113 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
         if (callback) callback({ success: false, error: error.message });
       }
     });
+
+    // Launcher: Register app directly from dropped file path
+    socket.on('launcher:register-from-file', async (payload: { filePath: string; category?: string }, callback?: (res: any) => void) => {
+      try {
+        if (!payload || !payload.filePath) {
+          throw new Error('Missing file path');
+        }
+        const rawPath = payload.filePath.trim();
+        logger.info(`Drag & Drop received: ${rawPath}`);
+        const resolvedPath = await ShortcutResolver.resolve(rawPath);
+        const parsed = path.parse(resolvedPath);
+        const rawName = parsed.name || 'Application';
+        const friendlyName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+
+        const app = AppRegistryService.registerApp({
+          name: friendlyName,
+          executablePath: resolvedPath,
+          icon: null,
+          category: payload.category || 'Developer',
+        });
+
+
+        logger.info(`✨ Successfully registered app from drop: ${app.name} (${resolvedPath})`);
+        const res = { success: true, app };
+        if (callback) callback(res);
+        io.emit('launcher:apps:updated', { apps: AppRegistryService.getAllApps() });
+      } catch (error: any) {
+        logger.error('Failed to register app from dropped file:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // Device Management: List all trusted devices
+    socket.on('device:list', (callback?: (res: any) => void) => {
+      try {
+        const devices = DeviceRepository.getAllTrustedDevices();
+        const activeSockets = Array.from(io.sockets.sockets.values()).filter(s => s.data.authenticated && !s.data.isLocalGui);
+        const activeDeviceIds = new Set(activeSockets.map(s => s.data.deviceId));
+        
+        const enriched = devices.map(d => ({
+          ...d,
+          isOnline: activeDeviceIds.has(d.id),
+        }));
+
+        const res = { success: true, devices: enriched };
+        if (callback) callback(res);
+        socket.emit('device:list:response', res);
+      } catch (error: any) {
+        logger.error('Failed to list devices:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // Device Management: Revoke a device
+    socket.on('device:revoke', (payload: { deviceId: string }, callback?: (res: any) => void) => {
+      try {
+        if (!payload || !payload.deviceId) {
+          throw new Error('Missing device ID');
+        }
+        DeviceRepository.revokeDevice(payload.deviceId);
+        
+        // Disconnect sockets for this device
+        const sockets = Array.from(io.sockets.sockets.values());
+        for (const s of sockets) {
+          if (s.data.deviceId === payload.deviceId) {
+            s.emit('connection:status', { status: 'revoked' });
+            s.disconnect(true);
+          }
+        }
+
+        const res = { success: true };
+        if (callback) callback(res);
+        io.emit('device:list:updated', { devices: DeviceRepository.getAllTrustedDevices() });
+      } catch (error: any) {
+        logger.error('Failed to revoke device:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // System: Get status, network info, active pairing details
+    socket.on('system:info', (callback?: (res: any) => void) => {
+      try {
+        const token = PairingService.getActivePairingToken();
+        const ips = PairingService.getLocalIPAddresses();
+        const host = ips[0] || '127.0.0.1';
+        const port = env.PORT;
+        const pairingUri = `devdeck://pair?host=${host}&port=${port}&token=${token}`;
+        const activeSockets = Array.from(io.sockets.sockets.values()).filter(s => s.data.authenticated && !s.data.isLocalGui);
+
+        const res = {
+          success: true,
+          host,
+          port,
+          ips,
+          token,
+          pairingUri,
+          activeDeviceCount: activeSockets.length,
+          totalRegisteredApps: AppRegistryService.getAllApps().length,
+        };
+        if (callback) callback(res);
+        socket.emit('system:info:response', res);
+      } catch (error: any) {
+        logger.error('Failed to query system info:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
 
     // Launcher: Query available websites
     socket.on('launcher:websites', (callback?: (res: any) => void) => {
