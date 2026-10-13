@@ -2,12 +2,62 @@
   "name": "devdeck-desktop-agent",
   "version": "1.0.0",
   "description": "Desktop agent for DevDeck personal productivity remote control",
-  "main": "dist/index.js",
+  "author": "wtfnixin",
+  "main": "electron-main.js",
   "bin": "dist/index.js",
   "pkg": {
     "assets": [
       "dist/**/*",
       "node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+    ]
+  },
+  "build": {
+    "appId": "com.devdeck.desktopagent",
+    "productName": "DevDeck Agent",
+    "directories": {
+      "output": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DevDeck Agent",
+      "artifactName": "DevDeckAgentSetup.${ext}"
+    },
+    "portable": {
+      "artifactName": "devdeck-agent.${ext}"
+    },
+    "files": [
+      "dist/**/*",
+      "public/**/*",
+      "electron-main.js",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "bin",
+        "to": "bin",
+        "filter": ["*.exe"]
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*"
     ]
   },
   "scripts": {
@@ -18,7 +68,6 @@
     "gui:dev": "npm run build && npx electron electron-main.js",
     "build:exe": "node build-exe.js"
   },
-
   "dependencies": {
     "better-sqlite3": "^12.10.1",
     "copy-paste": "^2.2.0",
@@ -35,6 +84,8 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.11.24",
     "@types/qrcode": "^1.5.5",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },

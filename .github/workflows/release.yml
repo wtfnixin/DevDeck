@@ -103,18 +103,9 @@ jobs:
           }
           Copy-Item $outBrightness "desktop-agent\bin\brightness-control.exe" -Force
 
-      - name: Compile Standalone Executable
+      - name: Build Electron GUI & Setup Installer
         working-directory: desktop-agent
         run: node build-exe.js
-
-      - name: Setup Inno Setup
-        run: |
-          choco install innosetup --no-progress -y
-          echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
-
-      - name: Compile Setup Installer (Inno Setup)
-        working-directory: desktop-agent
-        run: iscc installer.iss
 
       - name: Upload Windows Assets
         uses: actions/upload-artifact@v4

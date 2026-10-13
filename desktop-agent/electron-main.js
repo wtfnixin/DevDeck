@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const http = require('http');
 const { spawn } = require('child_process');
 
@@ -17,17 +18,22 @@ if (!gotLock) {
 
 let mainWindow = null;
 let tray = null;
+let agentServer = null;
 let agentProcess = null;
+let activePort = process.env.PORT ? parseInt(process.env.PORT, 10) : 8081;
 app.isQuitting = false;
 
 // Create 16x16 tray icon
 function createTrayIcon() {
+  const iconPath = path.join(__dirname, 'public', 'icon.png');
+  if (fs.existsSync(iconPath)) {
+    return nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  }
   const size = 16;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#18181b" stroke="#3b82f6" stroke-width="2"/><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="#10b981"/></svg>`;
   const base64 = Buffer.from(svg).toString('base64');
   return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${base64}`);
 }
-
 
 // Poll server until ready
 function waitForServer(url, timeoutMs = 8000) {
@@ -53,19 +59,38 @@ function waitForServer(url, timeoutMs = 8000) {
   });
 }
 
-function startAgentProcess() {
-  return new Promise((resolve) => {
-    // Check if server is already running (e.g. from terminal)
-    http.get('http://localhost:8081/api/status', (res) => {
-      if (res.statusCode === 200) {
-        console.log('✅ Connected to existing DevDeck agent on port 8081.');
-        return resolve();
-      }
-      spawnNodeAgent(resolve);
-    }).on('error', () => {
-      spawnNodeAgent(resolve);
+async function startAgentProcess() {
+  // 1. Check if server is already running (e.g. from terminal or external daemon)
+  const isRunning = await new Promise((resolve) => {
+    const req = http.get(`http://localhost:${activePort}/api/status`, (res) => {
+      resolve(res.statusCode === 200);
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(500, () => {
+      req.destroy();
+      resolve(false);
     });
   });
+
+  if (isRunning) {
+    console.log(`✅ Connected to existing DevDeck agent on port ${activePort}.`);
+    return activePort;
+  }
+
+  // 2. Start agent in-process directly using bundled Node environment
+  console.log('🚀 Starting in-process DevDeck Agent server...');
+  try {
+    const { bootstrap } = require(path.join(__dirname, 'dist', 'index.js'));
+    agentServer = await bootstrap();
+    console.log(`✅ In-process DevDeck Agent server started.`);
+    return activePort;
+  } catch (err) {
+    console.error('💥 In-process startup failed:', err);
+    if (!app.isPackaged) {
+      await new Promise((resolve) => spawnNodeAgent(resolve));
+    }
+    return activePort;
+  }
 }
 
 function spawnNodeAgent(callback) {
@@ -82,18 +107,19 @@ function spawnNodeAgent(callback) {
     console.error('Failed to spawn agent process:', err);
   });
 
-  waitForServer('http://localhost:8081/api/status')
+  waitForServer(`http://localhost:${activePort}/api/status`)
     .then(() => {
-      console.log('✅ Agent server is ready on port 8081.');
+      console.log(`✅ Agent server is ready on port ${activePort}.`);
       callback();
     })
     .catch((err) => {
       console.error(err);
-      callback(); // proceed to create window anyway
+      callback();
     });
 }
 
 function createWindow() {
+  const iconPath = path.join(__dirname, 'public', 'icon.png');
   mainWindow = new BrowserWindow({
     width: 1060,
     height: 750,
@@ -102,6 +128,7 @@ function createWindow() {
     frame: false,
     backgroundColor: '#191D21',
     title: 'DevDeck Desktop Agent',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
@@ -124,7 +151,7 @@ function createWindow() {
     if (mainWindow) mainWindow.hide();
   });
 
-  mainWindow.loadURL('http://localhost:8081');
+  mainWindow.loadURL(`http://localhost:${activePort}`);
 
   // Minimize to tray on close
   mainWindow.on('close', (event) => {
@@ -142,7 +169,7 @@ function createWindow() {
 function createTray() {
   const icon = createTrayIcon();
   tray = new Tray(icon);
-  tray.setToolTip('DevDeck Desktop Agent (Active :8081)');
+  tray.setToolTip(`DevDeck Desktop Agent (Active :${activePort})`);
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -157,7 +184,7 @@ function createTray() {
       },
     },
     { type: 'separator' },
-    { label: 'Status: Agent Active (:8081)', enabled: false },
+    { label: `Status: Agent Active (:${activePort})`, enabled: false },
     { type: 'separator' },
     {
       label: 'Quit DevDeck Agent',
@@ -206,6 +233,14 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true;
+  if (agentServer && typeof agentServer.stop === 'function') {
+    try {
+      console.log('Stopping agent server...');
+      agentServer.stop();
+    } catch (e) {
+      // ignore
+    }
+  }
   if (agentProcess) {
     console.log('Terminating agent process...');
     agentProcess.kill();
