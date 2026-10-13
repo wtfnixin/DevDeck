@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "💬 GitHub Discussions"
+    url: "https://github.com/wtfnixin/DevDeck/discussions"
+    about: "Ask questions, share your custom deck layouts, or brainstorm features with the community."
+  - name: "🔒 Security Vulnerabilities"
+    url: "https://github.com/wtfnixin/DevDeck/security/advisories"
+    about: "Privately disclose security vulnerabilities directly to the maintainers."

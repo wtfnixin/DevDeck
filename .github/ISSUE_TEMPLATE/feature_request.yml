@@ -1,0 +1,57 @@
+name: "💡 Feature Request"
+description: "Suggest an idea, macro action, or enhancement for DevDeck"
+title: "[FEATURE]: "
+labels: ["enhancement", "proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make DevDeck even better? We'd love to hear it! Please provide details about what you'd like to see.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Feature Category"
+      description: "What area does this feature improve?"
+      options:
+        - "New Deck Macro Action (e.g., OBS, Discord, Spotify control)"
+        - "UI / Deck Aesthetics / Themes / Keycap customization"
+        - "Mobile App Experience (Gestures, Haptics, Navigation)"
+        - "Desktop Agent Performance & Native Drivers"
+        - "Linux / macOS Support"
+        - "Plugin / Extension System"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem or Use Case"
+      description: "Is your feature request related to a problem or workflow limitation? Please explain."
+      placeholder: "I'm always switching between microphone mute states in Discord while gaming, but there's no dedicated mic mute action..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed Solution"
+      description: "Describe the solution you'd like to see implemented."
+      placeholder: "Add a global 'Mute Microphone' keycap that triggers Windows native microphone toggle..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      description: "Any alternative solutions or workarounds you've thought of?"
+      placeholder: "Using a virtual audio cable or custom hotkey script..."
+
+  - type: checkboxes
+    id: willing_to_contribute
+    attributes:
+      label: "Contribution"
+      options:
+        - label: "I am willing to submit a Pull Request to implement this feature!"
+          required: false

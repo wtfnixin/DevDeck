@@ -68,10 +68,14 @@ app.*.map.json
 /devdeck.db-*
 /artifacts/
 /.agents/
-# Markdown documentation files (ignore all except README.md)
+# Markdown documentation files (ignore internal docs except community health files)
 *.md
 !README.md
 !README.MD
 !readme.md
+!CONTRIBUTING.md
+!CODE_OF_CONDUCT.md
+!SECURITY.md
+!.github/**/*.md
 
 
