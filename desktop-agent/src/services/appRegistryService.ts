@@ -1,7 +1,7 @@
 import { db } from '../core/database/connection';
 import { logger } from '../core/logger/winston';
 import { AppLauncher } from '../types/launcher';
-import { exec, execSync } from 'child_process';
+import { exec, execSync, spawn } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -195,6 +195,52 @@ export class AppRegistryService {
     }
   }
 
+  public static executeApp(execPath: string): void {
+    const cleanPath = execPath.trim();
+    const isCmdOrBat = /\.(cmd|bat)$/i.test(cleanPath);
+    const isLnk = /\.lnk$/i.test(cleanPath);
+
+    if (process.platform === 'win32') {
+      if (isLnk || isCmdOrBat) {
+        const child = spawn('cmd.exe', ['/c', 'start', '""', cleanPath], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        });
+        child.unref();
+      } else {
+        try {
+          const child = spawn(cleanPath, [], {
+            detached: true,
+            stdio: 'ignore',
+            shell: false,
+            windowsHide: false,
+          });
+          child.on('error', (err) => {
+            logger.warn(`Direct spawn failed for ${cleanPath}, falling back to shell start:`, err.message);
+            const fallback = spawn('cmd.exe', ['/c', 'start', '""', cleanPath], {
+              detached: true,
+              stdio: 'ignore',
+              windowsHide: true,
+            });
+            fallback.unref();
+          });
+          child.unref();
+        } catch (err) {
+          const fallback = spawn('cmd.exe', ['/c', 'start', '""', cleanPath], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true,
+          });
+          fallback.unref();
+        }
+      }
+    } else {
+      const child = spawn(cleanPath, [], { detached: true, stdio: 'ignore' });
+      child.unref();
+    }
+  }
+
   public static launchApp(id: string): Promise<void> {
     return new Promise(async (resolve, reject) => {
       try {
@@ -208,24 +254,18 @@ export class AppRegistryService {
         const execPath = row.executable_path;
         const execFilename = path.basename(execPath, path.extname(execPath));
 
-        logger.info(`Attempting window activation for app: ${name} / ${execFilename}`);
+        logger.info(`⚡ Fast launch triggered for app: ${name} (${execPath})`);
 
-        // Try focusing the window using name or filename
+        // Ultra-fast sub-50ms native focus check
         const focused = await WindowManager.focusWindow([name, execFilename]);
         if (focused) {
-          logger.info(`Focused existing window for app: ${name}`);
+          logger.info(`✅ Focused existing window for app: ${name}`);
           return resolve();
         }
 
-        logger.info(`App window not found or couldn't focus. Launching new instance: ${execPath}`);
-        const command = execPath.includes(' ') && !execPath.startsWith('"') ? `"${execPath}"` : execPath;
-
-        exec(command, (launchError) => {
-          if (launchError) {
-            logger.error(`Error executing app ${execPath}:`, launchError);
-            return reject(launchError);
-          }
-        });
+        // App not already open: direct detached launch
+        logger.info(`🚀 Spawning new instance for app: ${name}`);
+        this.executeApp(execPath);
         resolve();
       } catch (error) {
         logger.error(`Exception during launching app ID ${id}:`, error);

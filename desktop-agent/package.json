@@ -14,7 +14,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "gui": "npx electron electron-main.js",
+    "gui": "npm run build && npx electron electron-main.js",
     "gui:dev": "npm run build && npx electron electron-main.js",
     "build:exe": "node build-exe.js"
   },

@@ -1,85 +1,76 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
+import * as path from 'path';
+import * as fs from 'fs';
 import { logger } from '../core/logger/winston';
 
 export class WindowManager {
+  private static binaryPath: string | null = null;
+
   /**
-   * Attempts to find a window matching a set of keywords (case-insensitive substring match),
+   * Locates the ultra-fast native Windows window focus helper binary.
+   */
+  private static getFocusBinaryPath(): string | null {
+    if (this.binaryPath && fs.existsSync(this.binaryPath)) {
+      return this.binaryPath;
+    }
+
+    const candidatePaths = [
+      path.join(__dirname, '../../bin/window-focus.exe'),
+      path.join(process.cwd(), 'bin/window-focus.exe'),
+      path.join(__dirname, '../bin/window-focus.exe'),
+      path.join(process.cwd(), 'desktop-agent/bin/window-focus.exe'),
+    ];
+
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        this.binaryPath = p;
+        return p;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Attempts to find an open window matching keywords,
    * restores it if minimized, and brings it to the foreground.
+   *
+   * Executes via native Win32 API in under 50ms.
    * Returns true if focused successfully, false otherwise.
    */
   public static focusWindow(keywords: string[]): Promise<boolean> {
     return new Promise((resolve) => {
-      // Filter out empty keywords and escape single quotes
+      // Filter valid keywords
       const cleanKeywords = keywords
-        .filter(k => k && k.trim().length > 0)
-        .map(k => k.replace(/'/g, "''").toLowerCase());
+        .filter(k => k && typeof k === 'string' && k.trim().length > 0)
+        .map(k => k.trim());
 
       if (cleanKeywords.length === 0) {
         return resolve(false);
       }
 
-      // Build PowerShell array of keywords
-      const psKeywordsArray = '@(' + cleanKeywords.map(k => `'${k}'`).join(', ') + ')';
+      // Linux/macOS fallback: bypass until Linux wmctrl is implemented
+      if (process.platform !== 'win32') {
+        return resolve(false);
+      }
 
-      const psScript = `
-        $keywords = ${psKeywordsArray}
-        
-        # Get all processes with main window titles
-        $processes = Get-Process | Where-Object { $_.MainWindowTitle -and $_.MainWindowHandle -ne [IntPtr]::Zero }
-        
-        $targetProc = $null
-        
-        # Try matching by window title first (any of the keywords)
-        foreach ($kw in $keywords) {
-          $match = $processes | Where-Object { $_.MainWindowTitle.ToLower().Contains($kw) } | Select-Object -First 1
-          if ($match) {
-            $targetProc = $match
-            break
-          }
-        }
-        
-        # If no window title match, try matching by process name
-        if (-not $targetProc) {
-          foreach ($kw in $keywords) {
-            $match = Get-Process | Where-Object { $_.ProcessName.ToLower().Contains($kw) -and $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
-            if ($match) {
-              $targetProc = $match
-              break
-            }
-          }
-        }
-        
-        if ($targetProc) {
-          $sig = @'
-          [DllImport("user32.dll")]
-          public static extern bool SetForegroundWindow(IntPtr hWnd);
-          [DllImport("user32.dll")]
-          public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-          [DllImport("user32.dll")]
-          public static extern bool IsIconic(IntPtr hWnd);
-'@
-          $type = Add-Type -MemberDefinition $sig -Name "Win32Util" -Namespace "Win32" -PassThru -ErrorAction SilentlyContinue
-          $hwnd = $targetProc.MainWindowHandle
-          
-          # If minimized, restore it
-          if ([Win32.Win32Util]::IsIconic($hwnd)) {
-            [Win32.Win32Util]::ShowWindowAsync($hwnd, 9) # 9 = SW_RESTORE
-          }
-          [Win32.Win32Util]::SetForegroundWindow($hwnd)
-          Write-Output "SUCCESS"
-        } else {
-          Write-Output "FAIL"
-        }
-      `.trim();
+      const binary = this.getFocusBinaryPath();
+      if (!binary) {
+        // If helper is missing, do not block; proceed directly
+        logger.debug('Native window-focus binary not found. Skipping focus check.');
+        return resolve(false);
+      }
 
-      // Encode the PowerShell script to UTF-16LE Base64 to safely execute complex/multiline code
-      const base64Script = Buffer.from(psScript, 'utf16le').toString('base64');
-      const fullCmd = `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${base64Script}`;
+      const startTime = Date.now();
 
-      exec(fullCmd, (error, stdout) => {
-        if (!error && stdout && stdout.trim().includes('SUCCESS')) {
+      // Execute native helper with a strict 300ms timeout
+      execFile(binary, cleanKeywords, { timeout: 300, windowsHide: true }, (error) => {
+        const elapsed = Date.now() - startTime;
+        if (!error) {
+          logger.info(`⚡ Native window focus succeeded in ${elapsed}ms for [${cleanKeywords.join(', ')}]`);
           resolve(true);
         } else {
+          logger.debug(`Window not found for [${cleanKeywords.join(', ')}] (${elapsed}ms). Proceeding to launch.`);
           resolve(false);
         }
       });

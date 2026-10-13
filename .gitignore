@@ -52,7 +52,9 @@ app.*.map.json
 /desktop-agent/node_modules/
 /desktop-agent/dist/
 /desktop-agent/build/
-/desktop-agent/bin/
+/desktop-agent/bin/*
+!/desktop-agent/bin/window-focus.exe
+!/desktop-agent/bin/brightness-control.exe
 /desktop-agent/logs/
 /desktop-agent/.env
 /desktop-agent/devdeck.db
@@ -66,5 +68,10 @@ app.*.map.json
 /devdeck.db-*
 /artifacts/
 /.agents/
+# Markdown documentation files (ignore all except README.md)
+*.md
+!README.md
+!README.MD
+!readme.md
 
 
