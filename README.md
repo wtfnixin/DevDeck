@@ -1,16 +1,19 @@
-# DevDeck
+# DevDeck ⚡
 
-[GitHub release (latest by date)](https://github.com/wtfnixin/StreamDeck/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/wtfnixin/DevDeck?style=flat-square&color=55B9AA)](https://github.com/wtfnixin/DevDeck/releases/latest)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
+[![Good First Issues](https://img.shields.io/badge/issues-good%20first%20issue-7057ff?style=flat-square)](https://github.com/wtfnixin/DevDeck/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 
-DevDeck is a customizable, open-source productivity remote control suite (similar to Elgato Stream Deck). It allows developers and power users to control their PC, trigger complex workspace workflows, sync clipboard history in real-time, launch apps/websites, and control their desktop remotely using a mobile app, browser tab, or second device.
+DevDeck is a customizable, open-source productivity remote control suite (an open alternative to the Elgato Stream Deck). It allows developers and power users to control their PC, trigger complex workspace workflows, sync clipboard history in real-time, launch apps/websites, and control their desktop remotely using a mobile app, browser tab, or second device.
 
 ### 📥 Downloads
 
 | Platform | Download Link | File |
 | :--- | :--- | :--- |
-| **Android Client** | [Download APK](https://github.com/wtfnixin/StreamDeck/releases/latest/download/app-release.apk) | `app-release.apk` |
-| **Windows Desktop Agent (Installer)** | [Download Setup](https://github.com/wtfnixin/StreamDeck/releases/latest/download/DevDeckAgentSetup.exe) | `DevDeckAgentSetup.exe` |
-| **Windows Desktop Agent (Standalone)** | [Download Executable](https://github.com/wtfnixin/StreamDeck/releases/latest/download/devdeck-agent.exe) | `devdeck-agent.exe` |
+| **Android Client** | [Download APK](https://github.com/wtfnixin/DevDeck/releases/latest/download/DevDeck.apk) | `DevDeck.apk` |
+| **Windows Desktop Agent (Installer)** | [Download Setup](https://github.com/wtfnixin/DevDeck/releases/latest/download/DevDeckAgentSetup.exe) | `DevDeckAgentSetup.exe` |
+| **Windows Desktop Agent (Standalone)** | [Download Executable](https://github.com/wtfnixin/DevDeck/releases/latest/download/devdeck-agent.exe) | `devdeck-agent.exe` |
 
 ---
 
@@ -107,7 +110,7 @@ You can package the Node.js agent into a single binary that doesn't require Node
    ```bash
    flutter build apk --release
    ```
-*   **Result location**: `build/app/outputs/flutter-apk/app-release.apk`
+*   **Result location**: `build/app/outputs/flutter-apk/app-release.apk` (packaged as `DevDeck.apk`)
 
 ---
 
@@ -159,17 +162,14 @@ Name: "{userstartup}\DevDeck Agent"; Filename: "{app}\devdeck-agent.exe"
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contributing & Community
 
-We welcome contributions from the community! Whether you want to fix a bug, add a new layout/macro action, or improve the documentation, feel free to dive in:
+We love contributions! DevDeck is built by developers for developers. Whether you want to fix a bug, add a macro action, or polish the docs, we welcome your help:
 
-1. **Fork the Repository**: Create your own copy of this project on GitHub.
-2. **Create a Feature Branch**:
-   ```bash
-   git checkout -b feature/amazing-new-feature
-   ```
-3. **Make Your Changes**: Commit clear, descriptive messages.
-4. **Submit a Pull Request**: Push your branch to GitHub and open a Pull Request against our `main` branch.
+* 📖 Check out our [Contributing Guide (CONTRIBUTING.md)](CONTRIBUTING.md) to get your local environment running.
+* 🏷️ Browse our [Good First Issues](https://github.com/wtfnixin/DevDeck/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) for beginner-friendly tasks.
+* 📜 Read our [Code of Conduct (CODE_OF_CONDUCT.md)](CODE_OF_CONDUCT.md).
+* 🔒 Review our [Security Policy (SECURITY.md)](SECURITY.md).
 
-*Once your pull request is reviewed and merged into `main`, our CI/CD pipeline will automatically run all tests, build the Android APK, package the Windows installer, and publish a new production-ready release!*
+*Once your pull request is reviewed and merged into `main`, our CI/CD pipeline will automatically run all tests, build the Android APK, package the Windows installer, and publish a new production release!*
 

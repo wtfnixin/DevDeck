@@ -1,0 +1,87 @@
+name: "🐛 Bug Report"
+description: "Report a bug or unexpected behavior in DevDeck"
+title: "[BUG]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please fill out the form below to help us understand and resolve the bug as quickly as possible.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: "Affected Component"
+      description: "Which part of DevDeck is experiencing the issue?"
+      options:
+        - "Desktop Agent (Node.js/Electron Backend)"
+        - "Mobile App (Flutter Android Client)"
+        - "Desktop Dashboard GUI (HTML/CSS/JS)"
+        - "Pairing / Network Discovery (QR code / WebSocket)"
+        - "Native System Controls (Audio / Brightness / Hotkeys)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: "Operating System & Environment"
+      description: "What OS is your desktop and/or mobile device running?"
+      options:
+        - "Windows 11"
+        - "Windows 10"
+        - "Android 14+"
+        - "Android 13 or below"
+        - "Linux (Fedora / GNOME / Wayland)"
+        - "Linux (Ubuntu / Debian / X11)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Bug Description"
+      description: "A clear and concise description of what the bug is."
+      placeholder: "When I tap Brightness Up on the phone, the brightness does not change..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Steps to Reproduce"
+      description: "Steps to reproduce the behavior."
+      placeholder: |
+        1. Start the desktop agent with `npm run gui`
+        2. Pair the phone using the QR code
+        3. Swipe to the Media Controls page
+        4. Tap 'Brightness Up'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected Behavior"
+      description: "What did you expect to happen?"
+      placeholder: "The screen brightness should increment by 10% instantly."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Logs & Console Output"
+      description: "Paste relevant log entries from `logs/combined.log` or the desktop terminal."
+      render: shell
+      placeholder: "[2026-10-13 14:00:00] error: ..."
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: "Self Check"
+      options:
+        - label: "I have searched existing issues to ensure this is not a duplicate."
+          required: true
+        - label: "I am running the latest version of DevDeck."
+          required: false
