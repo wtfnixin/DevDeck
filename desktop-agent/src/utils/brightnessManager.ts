@@ -15,6 +15,8 @@ export class BrightnessManager {
     }
 
     const candidatePaths = [
+      path.join(path.dirname(process.execPath), 'brightness-control.exe'),
+      path.join(path.dirname(process.execPath), 'bin/brightness-control.exe'),
       path.join(__dirname, '../../bin/brightness-control.exe'),
       path.join(process.cwd(), 'bin/brightness-control.exe'),
       path.join(__dirname, '../bin/brightness-control.exe'),

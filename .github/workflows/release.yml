@@ -69,13 +69,39 @@ jobs:
         working-directory: desktop-agent
         run: npm run build
 
-      - name: Compile Keypresser Utility
+      - name: Compile Native Utilities & Helpers
         run: |
           New-Item -ItemType Directory -Force -Path desktop-agent/build
+          New-Item -ItemType Directory -Force -Path desktop-agent/bin
           $csc = (Get-ChildItem -Path "C:\Windows\Microsoft.NET\Framework64\v4*" -Filter "csc.exe" -Recurse | Select-Object -First 1).FullName
-          $srcFile = Join-Path $PWD "desktop-agent\src\utils\keypresser.cs"
-          $outFile = Join-Path $PWD "desktop-agent\build\keypresser.exe"
-          & $csc "/target:winexe" "/out:$outFile" "$srcFile"
+          Write-Host "Using C# Compiler: $csc"
+
+          # 1. Keypresser Utility
+          $srcKeypresser = Join-Path $PWD "desktop-agent\src\utils\keypresser.cs"
+          $outKeypresser = Join-Path $PWD "desktop-agent\build\keypresser.exe"
+          & $csc "/target:winexe" "/out:$outKeypresser" "$srcKeypresser"
+
+          # 2. Window Focus Helper
+          $srcWindowFocus = Join-Path $PWD "desktop-agent\src\utils\native\WindowFocus.cs"
+          $outWindowFocus = Join-Path $PWD "desktop-agent\build\window-focus.exe"
+          if (Test-Path $srcWindowFocus) {
+            & $csc "/target:winexe" "/out:$outWindowFocus" "$srcWindowFocus"
+          }
+          if (-not (Test-Path $outWindowFocus) -and (Test-Path "desktop-agent\bin\window-focus.exe")) {
+            Copy-Item "desktop-agent\bin\window-focus.exe" $outWindowFocus -Force
+          }
+          Copy-Item $outWindowFocus "desktop-agent\bin\window-focus.exe" -Force
+
+          # 3. Brightness Control Helper
+          $srcBrightness = Join-Path $PWD "desktop-agent\src\utils\native\BrightnessControl.cs"
+          $outBrightness = Join-Path $PWD "desktop-agent\build\brightness-control.exe"
+          if (Test-Path $srcBrightness) {
+            & $csc "/target:winexe" "/r:System.Management.dll" "/out:$outBrightness" "$srcBrightness"
+          }
+          if (-not (Test-Path $outBrightness) -and (Test-Path "desktop-agent\bin\brightness-control.exe")) {
+            Copy-Item "desktop-agent\bin\brightness-control.exe" $outBrightness -Force
+          }
+          Copy-Item $outBrightness "desktop-agent\bin\brightness-control.exe" -Force
 
       - name: Compile Standalone Executable
         working-directory: desktop-agent

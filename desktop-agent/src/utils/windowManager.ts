@@ -15,10 +15,13 @@ export class WindowManager {
     }
 
     const candidatePaths = [
+      path.join(path.dirname(process.execPath), 'window-focus.exe'),
+      path.join(path.dirname(process.execPath), 'bin/window-focus.exe'),
       path.join(__dirname, '../../bin/window-focus.exe'),
       path.join(process.cwd(), 'bin/window-focus.exe'),
       path.join(__dirname, '../bin/window-focus.exe'),
       path.join(process.cwd(), 'desktop-agent/bin/window-focus.exe'),
+      path.join(process.cwd(), 'build/window-focus.exe'),
     ];
 
     for (const p of candidatePaths) {
