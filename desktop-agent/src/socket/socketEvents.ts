@@ -15,6 +15,7 @@ import { db } from '../core/database/connection';
 import { env } from '../core/config/env';
 import { exec } from 'child_process';
 import path from 'path';
+import { BrightnessManager } from '../utils/brightnessManager';
 
 export function registerSocketEvents(io: Server, socket: Socket): void {
   const isAuth = socket.data.authenticated === true;
@@ -440,17 +441,10 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
     });
 
     // System controls: Brightness Up
-    socket.on('system:brightness-up', (callback?: (res: any) => void) => {
+    socket.on('system:brightness-up', async (callback?: (res: any) => void) => {
       try {
-        const cmd = 'powershell -NoProfile -Command "try { \`$cur = (Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightness -ErrorAction Stop).CurrentBrightness; \`$new = [math]::min(100, \`$cur + 10); Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = \`$new } } catch { exit 0 }"';
-        exec(cmd, (err) => {
-          if (err) {
-            logger.error('system:brightness-up failed:', err);
-            if (callback) callback({ success: false, error: err.message });
-          } else {
-            if (callback) callback({ success: true });
-          }
-        });
+        const res = await BrightnessManager.adjustBrightness(10);
+        if (callback) callback(res);
       } catch (error: any) {
         logger.error('system:brightness-up error:', error);
         if (callback) callback({ success: false, error: error.message });
@@ -458,17 +452,10 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
     });
 
     // System controls: Brightness Down
-    socket.on('system:brightness-down', (callback?: (res: any) => void) => {
+    socket.on('system:brightness-down', async (callback?: (res: any) => void) => {
       try {
-        const cmd = 'powershell -NoProfile -Command "try { \`$cur = (Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightness -ErrorAction Stop).CurrentBrightness; \`$new = [math]::max(0, \`$cur - 10); Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = \`$new } } catch { exit 0 }"';
-        exec(cmd, (err) => {
-          if (err) {
-            logger.error('system:brightness-down failed:', err);
-            if (callback) callback({ success: false, error: err.message });
-          } else {
-            if (callback) callback({ success: true });
-          }
-        });
+        const res = await BrightnessManager.adjustBrightness(-10);
+        if (callback) callback(res);
       } catch (error: any) {
         logger.error('system:brightness-down error:', error);
         if (callback) callback({ success: false, error: error.message });
