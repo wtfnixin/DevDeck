@@ -26,4 +26,10 @@ try {
 } catch (error) {
   console.error('❌ Build failed:', error.message);
   process.exit(1);
+} finally {
+  const nodeNativePath = path.join(__dirname, 'lib-native', 'better_sqlite3_node22.node');
+  if (fs.existsSync(nodeNativePath)) {
+    fs.copyFileSync(nodeNativePath, targetPath);
+    console.log('🔄 Restored Node.js SQLite native addon for development environment.');
+  }
 }

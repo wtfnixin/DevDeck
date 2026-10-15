@@ -14,9 +14,15 @@ export class WindowManager {
       return this.binaryPath;
     }
 
+    const resources = (process as any).resourcesPath;
     const candidatePaths = [
       path.join(path.dirname(process.execPath), 'window-focus.exe'),
       path.join(path.dirname(process.execPath), 'bin/window-focus.exe'),
+      ...(resources ? [
+        path.join(resources, 'bin/window-focus.exe'),
+        path.join(resources, 'window-focus.exe'),
+        path.join(resources, '../bin/window-focus.exe'),
+      ] : []),
       path.join(__dirname, '../../bin/window-focus.exe'),
       path.join(process.cwd(), 'bin/window-focus.exe'),
       path.join(__dirname, '../bin/window-focus.exe'),

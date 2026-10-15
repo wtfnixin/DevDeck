@@ -8,6 +8,9 @@ class WindowFocus {
     static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    static extern void SwitchToThisWindow(IntPtr hWnd, bool fUnknown);
+
+    [DllImport("user32.dll")]
     static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     [DllImport("user32.dll")]
@@ -35,18 +38,17 @@ class WindowFocus {
     static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     [DllImport("user32.dll")]
-    static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
-
-    [DllImport("kernel32.dll")]
-    static extern uint GetCurrentThreadId();
+    static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
     [DllImport("user32.dll")]
-    static extern bool AllowSetForegroundWindow(int dwProcessId);
+    static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
     delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
+    static readonly IntPtr HWND_TOP = IntPtr.Zero;
+    const uint SWP_NOMOVE = 0x0002;
+    const uint SWP_NOSIZE = 0x0001;
     const int SW_RESTORE = 9;
-    const int ASFW_ANY = -1;
 
     static string[] searchTerms;
     static IntPtr foundHwnd = IntPtr.Zero;
@@ -124,49 +126,30 @@ class WindowFocus {
     static void Activate(IntPtr hWnd) {
         IntPtr foregroundWnd = GetForegroundWindow();
 
-        // 1. Already foreground: 0ms instant no-op (no flicker)
+        // 1. Already foreground: 0ms instant no-op
         if (hWnd == foregroundWnd) {
             return;
         }
 
-        // 2. Un-minimize only if minimized
+        // 2. Un-minimize if minimized
         if (IsIconic(hWnd)) {
             ShowWindow(hWnd, SW_RESTORE);
         }
 
-        // 3. Smooth, flicker-free thread-input attach
-        uint targetThreadId = 0;
-        GetWindowThreadProcessId(hWnd, out targetThreadId);
+        // 3. Inject harmless dummy input event (VK 0xE8 is unassigned in Windows)
+        // This grants the thread foreground activation rights from background sessions without menu flash
+        const byte VK_DUMMY = 0xE8;
+        keybd_event(VK_DUMMY, 0, 0, UIntPtr.Zero);
+        keybd_event(VK_DUMMY, 0, 2 /* KEYEVENTF_KEYUP */, UIntPtr.Zero);
 
-        uint foregroundThreadId = 0;
-        if (foregroundWnd != IntPtr.Zero) {
-            GetWindowThreadProcessId(foregroundWnd, out foregroundThreadId);
-        }
+        // 4. Bring window to top and set foreground
+        BringWindowToTop(hWnd);
+        SetForegroundWindow(hWnd);
 
-        uint currentThreadId = GetCurrentThreadId();
+        // 5. Switch to target window via Windows shell switcher (works from background/tray)
+        SwitchToThisWindow(hWnd, true);
 
-        bool attachedForeground = false;
-        bool attachedTarget = false;
-
-        try {
-            AllowSetForegroundWindow(ASFW_ANY);
-
-            if (foregroundThreadId != 0 && foregroundThreadId != currentThreadId) {
-                attachedForeground = AttachThreadInput(currentThreadId, foregroundThreadId, true);
-            }
-            if (targetThreadId != 0 && targetThreadId != currentThreadId) {
-                attachedTarget = AttachThreadInput(currentThreadId, targetThreadId, true);
-            }
-
-            BringWindowToTop(hWnd);
-            SetForegroundWindow(hWnd);
-        } finally {
-            if (attachedTarget) {
-                AttachThreadInput(currentThreadId, targetThreadId, false);
-            }
-            if (attachedForeground) {
-                AttachThreadInput(currentThreadId, foregroundThreadId, false);
-            }
-        }
+        // 6. Ensure topmost placement in normal Z-order without repaint flicker
+        SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     }
 }

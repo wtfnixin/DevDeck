@@ -14,9 +14,15 @@ export class VolumeManager {
       return this.binaryPath;
     }
 
+    const resources = (process as any).resourcesPath;
     const candidatePaths = [
       path.join(path.dirname(process.execPath), 'keypresser.exe'),
       path.join(path.dirname(process.execPath), 'bin/keypresser.exe'),
+      ...(resources ? [
+        path.join(resources, 'bin/keypresser.exe'),
+        path.join(resources, 'keypresser.exe'),
+        path.join(resources, '../bin/keypresser.exe'),
+      ] : []),
       path.join(__dirname, '../../bin/keypresser.exe'),
       path.join(process.cwd(), 'bin/keypresser.exe'),
       path.join(__dirname, '../bin/keypresser.exe'),
