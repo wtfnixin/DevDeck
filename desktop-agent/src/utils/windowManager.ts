@@ -21,6 +21,7 @@ export class WindowManager {
       path.join(process.cwd(), 'bin/window-focus.exe'),
       path.join(__dirname, '../bin/window-focus.exe'),
       path.join(process.cwd(), 'desktop-agent/bin/window-focus.exe'),
+      path.join(__dirname, '../../build/window-focus.exe'),
       path.join(process.cwd(), 'build/window-focus.exe'),
     ];
 
@@ -66,8 +67,8 @@ export class WindowManager {
 
       const startTime = Date.now();
 
-      // Execute native helper with a strict 300ms timeout
-      execFile(binary, cleanKeywords, { timeout: 300, windowsHide: true }, (error) => {
+      // Execute native helper with a safety timeout of 1200ms
+      execFile(binary, cleanKeywords, { timeout: 1200, windowsHide: true }, (error) => {
         const elapsed = Date.now() - startTime;
         if (!error) {
           logger.info(`⚡ Native window focus succeeded in ${elapsed}ms for [${cleanKeywords.join(', ')}]`);

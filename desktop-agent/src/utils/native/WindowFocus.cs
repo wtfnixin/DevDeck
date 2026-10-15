@@ -8,7 +8,7 @@ class WindowFocus {
     static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
-    static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     [DllImport("user32.dll")]
     static extern bool IsIconic(IntPtr hWnd);
@@ -20,12 +20,33 @@ class WindowFocus {
     static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
     [DllImport("user32.dll")]
+    static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
     static extern bool IsWindowVisible(IntPtr hWnd);
 
     [DllImport("user32.dll")]
     static extern bool EnumWindows(EnumWindowsProc enumProc, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [DllImport("kernel32.dll")]
+    static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    static extern bool AllowSetForegroundWindow(int dwProcessId);
+
     delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    const int SW_RESTORE = 9;
+    const int ASFW_ANY = -1;
 
     static string[] searchTerms;
     static IntPtr foundHwnd = IntPtr.Zero;
@@ -43,10 +64,11 @@ class WindowFocus {
             try {
                 if (proc.MainWindowHandle != IntPtr.Zero) {
                     string pName = proc.ProcessName.ToLower();
-                    string wTitle = proc.MainWindowTitle.ToLower();
+                    string wTitle = "";
+                    try { wTitle = proc.MainWindowTitle.ToLower(); } catch { }
 
                     foreach (var term in searchTerms) {
-                        if (term.Length > 0 && (pName.Contains(term) || wTitle.Contains(term))) {
+                        if (term.Length > 0 && (pName.Contains(term) || (wTitle.Length > 0 && wTitle.Contains(term)))) {
                             Activate(proc.MainWindowHandle);
                             Environment.Exit(0);
                         }
@@ -55,15 +77,34 @@ class WindowFocus {
             } catch { }
         }
 
-        // 2. Enumerate visible top-level windows
+        // 2. Enumerate top-level windows
         EnumWindows((hWnd, lParam) => {
-            if (!IsWindowVisible(hWnd)) return true;
+            // Include visible windows and minimized (iconic) windows
+            if (!IsWindowVisible(hWnd) && !IsIconic(hWnd)) return true;
 
-            StringBuilder sb = new StringBuilder(256);
-            if (GetWindowText(hWnd, sb, 256) > 0) {
-                string title = sb.ToString().ToLower();
-                foreach (var term in searchTerms) {
-                    if (term.Length > 0 && title.Contains(term)) {
+            int len = GetWindowTextLength(hWnd);
+            StringBuilder sb = new StringBuilder(len + 1);
+            if (len > 0) {
+                GetWindowText(hWnd, sb, len + 1);
+            }
+            string title = sb.ToString().ToLower();
+
+            uint pid = 0;
+            GetWindowThreadProcessId(hWnd, out pid);
+            string pName = "";
+            if (pid != 0) {
+                try {
+                    pName = Process.GetProcessById((int)pid).ProcessName.ToLower();
+                } catch { }
+            }
+
+            // Skip non-iconic windows with empty title (e.g. system helper windows)
+            if (title.Length == 0 && !IsIconic(hWnd)) return true;
+
+            foreach (var term in searchTerms) {
+                if (term.Length > 0) {
+                    if ((pName.Length > 0 && (pName.Contains(term) || term.Contains(pName))) ||
+                        (title.Length > 0 && (title.Contains(term) || term.Contains(title)))) {
                         foundHwnd = hWnd;
                         return false;
                     }
@@ -81,11 +122,51 @@ class WindowFocus {
     }
 
     static void Activate(IntPtr hWnd) {
-        if (IsIconic(hWnd)) {
-            ShowWindowAsync(hWnd, 9); // SW_RESTORE
+        IntPtr foregroundWnd = GetForegroundWindow();
+
+        // 1. Already foreground: 0ms instant no-op (no flicker)
+        if (hWnd == foregroundWnd) {
+            return;
         }
-        ShowWindowAsync(hWnd, 5); // SW_SHOW
-        BringWindowToTop(hWnd);
-        SetForegroundWindow(hWnd);
+
+        // 2. Un-minimize only if minimized
+        if (IsIconic(hWnd)) {
+            ShowWindow(hWnd, SW_RESTORE);
+        }
+
+        // 3. Smooth, flicker-free thread-input attach
+        uint targetThreadId = 0;
+        GetWindowThreadProcessId(hWnd, out targetThreadId);
+
+        uint foregroundThreadId = 0;
+        if (foregroundWnd != IntPtr.Zero) {
+            GetWindowThreadProcessId(foregroundWnd, out foregroundThreadId);
+        }
+
+        uint currentThreadId = GetCurrentThreadId();
+
+        bool attachedForeground = false;
+        bool attachedTarget = false;
+
+        try {
+            AllowSetForegroundWindow(ASFW_ANY);
+
+            if (foregroundThreadId != 0 && foregroundThreadId != currentThreadId) {
+                attachedForeground = AttachThreadInput(currentThreadId, foregroundThreadId, true);
+            }
+            if (targetThreadId != 0 && targetThreadId != currentThreadId) {
+                attachedTarget = AttachThreadInput(currentThreadId, targetThreadId, true);
+            }
+
+            BringWindowToTop(hWnd);
+            SetForegroundWindow(hWnd);
+        } finally {
+            if (attachedTarget) {
+                AttachThreadInput(currentThreadId, targetThreadId, false);
+            }
+            if (attachedForeground) {
+                AttachThreadInput(currentThreadId, foregroundThreadId, false);
+            }
+        }
     }
 }

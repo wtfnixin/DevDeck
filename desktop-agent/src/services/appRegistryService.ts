@@ -256,8 +256,29 @@ export class AppRegistryService {
 
         logger.info(`⚡ Fast launch triggered for app: ${name} (${execPath})`);
 
+        // Build comprehensive keywords and aliases for window matching
+        const subTerms = name.split(/[\/\-–—|&()]/).map(s => s.trim()).filter(s => s.length > 1);
+        const keywords = [name, execFilename, ...subTerms];
+
+        const lowerName = name.toLowerCase();
+        const lowerExec = execFilename.toLowerCase();
+        if (lowerName.includes('calc') || lowerExec === 'calc') {
+          keywords.push('calculator', 'calculatorapp');
+        }
+        if (lowerName.includes('command') || lowerName.includes('terminal') || lowerExec === 'cmd') {
+          keywords.push('cmd', 'windowsterminal', 'powershell');
+        }
+        if (lowerName.includes('spotify') || lowerExec === 'spotify') {
+          keywords.push('spotify');
+        }
+        if (lowerName.includes('code') || lowerExec === 'code') {
+          keywords.push('code', 'visual studio code');
+        }
+
+        const uniqueKeywords = Array.from(new Set(keywords));
+
         // Ultra-fast sub-50ms native focus check
-        const focused = await WindowManager.focusWindow([name, execFilename]);
+        const focused = await WindowManager.focusWindow(uniqueKeywords);
         if (focused) {
           logger.info(`✅ Focused existing window for app: ${name}`);
           return resolve();

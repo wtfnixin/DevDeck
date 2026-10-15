@@ -30,11 +30,14 @@ export async function bootstrap() {
     return server;
   } catch (error) {
     logger.error('💥 DevDeck Agent failed to start:', error);
-    process.exit(1);
+    throw error;
   }
 }
 
 if (require.main === module) {
-  bootstrap();
+  bootstrap().catch((error) => {
+    logger.error('Fatal agent startup error:', error);
+    process.exit(1);
+  });
 }
 

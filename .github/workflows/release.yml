@@ -79,7 +79,13 @@ jobs:
           # 1. Keypresser Utility
           $srcKeypresser = Join-Path $PWD "desktop-agent\src\utils\keypresser.cs"
           $outKeypresser = Join-Path $PWD "desktop-agent\build\keypresser.exe"
-          & $csc "/target:winexe" "/out:$outKeypresser" "$srcKeypresser"
+          if (Test-Path $srcKeypresser) {
+            & $csc "/target:winexe" "/out:$outKeypresser" "$srcKeypresser"
+          }
+          if (-not (Test-Path $outKeypresser) -and (Test-Path "desktop-agent\bin\keypresser.exe")) {
+            Copy-Item "desktop-agent\bin\keypresser.exe" $outKeypresser -Force
+          }
+          Copy-Item $outKeypresser "desktop-agent\bin\keypresser.exe" -Force
 
           # 2. Window Focus Helper
           $srcWindowFocus = Join-Path $PWD "desktop-agent\src\utils\native\WindowFocus.cs"

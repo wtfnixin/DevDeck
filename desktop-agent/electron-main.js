@@ -77,18 +77,23 @@ async function startAgentProcess() {
     return activePort;
   }
 
-  // 2. Start agent in-process directly using bundled Node environment
-  console.log('🚀 Starting in-process DevDeck Agent server...');
+  // 2. In development (!app.isPackaged), spawn standalone Node agent to match Node ABI
+  if (!app.isPackaged) {
+    console.log('🚀 Development mode: spawning standalone Node agent process...');
+    await new Promise((resolve) => spawnNodeAgent(resolve));
+    return activePort;
+  }
+
+  // 3. In packaged production app, start agent in-process or fallback to standalone process
+  console.log('🚀 Starting DevDeck Agent server...');
   try {
     const { bootstrap } = require(path.join(__dirname, 'dist', 'index.js'));
     agentServer = await bootstrap();
-    console.log(`✅ In-process DevDeck Agent server started.`);
+    console.log(`✅ DevDeck Agent server started.`);
     return activePort;
   } catch (err) {
-    console.error('💥 In-process startup failed:', err);
-    if (!app.isPackaged) {
-      await new Promise((resolve) => spawnNodeAgent(resolve));
-    }
+    console.warn('⚠️ In-process startup failed, falling back to standalone process:', err.message);
+    await new Promise((resolve) => spawnNodeAgent(resolve));
     return activePort;
   }
 }
@@ -97,7 +102,13 @@ function spawnNodeAgent(callback) {
   const entryScript = path.join(__dirname, 'dist', 'index.js');
   console.log('🚀 Spawning standalone Node agent process...');
   
-  agentProcess = spawn('node', [entryScript], {
+  let nodeBin = 'node';
+  const bundledNode = path.join(__dirname, 'bin', 'node.exe');
+  if (app.isPackaged && fs.existsSync(bundledNode)) {
+    nodeBin = bundledNode;
+  }
+
+  agentProcess = spawn(nodeBin, [entryScript], {
     cwd: __dirname,
     stdio: 'inherit',
     env: process.env,
@@ -113,7 +124,7 @@ function spawnNodeAgent(callback) {
       callback();
     })
     .catch((err) => {
-      console.error(err);
+      console.error('Failed to connect to agent server:', err);
       callback();
     });
 }

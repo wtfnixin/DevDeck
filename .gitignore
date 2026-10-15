@@ -55,6 +55,7 @@ app.*.map.json
 /desktop-agent/bin/*
 !/desktop-agent/bin/window-focus.exe
 !/desktop-agent/bin/brightness-control.exe
+!/desktop-agent/bin/keypresser.exe
 /desktop-agent/logs/
 /desktop-agent/.env
 /desktop-agent/devdeck.db

@@ -16,6 +16,7 @@ import { env } from '../core/config/env';
 import { exec } from 'child_process';
 import path from 'path';
 import { BrightnessManager } from '../utils/brightnessManager';
+import { VolumeManager } from '../utils/volumeManager';
 
 export function registerSocketEvents(io: Server, socket: Socket): void {
   const isAuth = socket.data.authenticated === true;
@@ -411,54 +412,59 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
     });
 
     // System controls: Volume Up
-    socket.on('system:volume-up', (callback?: (res: any) => void) => {
+    socket.on('system:volume-up', (dataOrCallback?: any, callback?: (res: any) => void) => {
+      const cb = typeof dataOrCallback === 'function' ? dataOrCallback : (typeof callback === 'function' ? callback : undefined);
       try {
-        runKeyboardEvent(175, callback);
+        VolumeManager.volumeUp(cb);
       } catch (error: any) {
         logger.error('system:volume-up error:', error);
-        if (callback) callback({ success: false, error: error.message });
+        if (cb) cb({ success: false, error: error.message });
       }
     });
 
     // System controls: Volume Down
-    socket.on('system:volume-down', (callback?: (res: any) => void) => {
+    socket.on('system:volume-down', (dataOrCallback?: any, callback?: (res: any) => void) => {
+      const cb = typeof dataOrCallback === 'function' ? dataOrCallback : (typeof callback === 'function' ? callback : undefined);
       try {
-        runKeyboardEvent(174, callback);
+        VolumeManager.volumeDown(cb);
       } catch (error: any) {
         logger.error('system:volume-down error:', error);
-        if (callback) callback({ success: false, error: error.message });
+        if (cb) cb({ success: false, error: error.message });
       }
     });
 
     // System controls: Volume Mute (Silent)
-    socket.on('system:volume-mute', (callback?: (res: any) => void) => {
+    socket.on('system:volume-mute', (dataOrCallback?: any, callback?: (res: any) => void) => {
+      const cb = typeof dataOrCallback === 'function' ? dataOrCallback : (typeof callback === 'function' ? callback : undefined);
       try {
-        runKeyboardEvent(173, callback);
+        VolumeManager.volumeMute(cb);
       } catch (error: any) {
         logger.error('system:volume-mute error:', error);
-        if (callback) callback({ success: false, error: error.message });
+        if (cb) cb({ success: false, error: error.message });
       }
     });
 
     // System controls: Brightness Up
-    socket.on('system:brightness-up', async (callback?: (res: any) => void) => {
+    socket.on('system:brightness-up', async (dataOrCallback?: any, callback?: (res: any) => void) => {
+      const cb = typeof dataOrCallback === 'function' ? dataOrCallback : (typeof callback === 'function' ? callback : undefined);
       try {
         const res = await BrightnessManager.adjustBrightness(10);
-        if (callback) callback(res);
+        if (cb) cb(res);
       } catch (error: any) {
         logger.error('system:brightness-up error:', error);
-        if (callback) callback({ success: false, error: error.message });
+        if (cb) cb({ success: false, error: error.message });
       }
     });
 
     // System controls: Brightness Down
-    socket.on('system:brightness-down', async (callback?: (res: any) => void) => {
+    socket.on('system:brightness-down', async (dataOrCallback?: any, callback?: (res: any) => void) => {
+      const cb = typeof dataOrCallback === 'function' ? dataOrCallback : (typeof callback === 'function' ? callback : undefined);
       try {
         const res = await BrightnessManager.adjustBrightness(-10);
-        if (callback) callback(res);
+        if (cb) cb(res);
       } catch (error: any) {
         logger.error('system:brightness-down error:', error);
-        if (callback) callback({ success: false, error: error.message });
+        if (cb) cb({ success: false, error: error.message });
       }
     });
     
@@ -524,18 +530,6 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
 }
 
 function runKeyboardEvent(vkCode: number, callback?: (res: any) => void) {
-  const isPackaged = typeof (process as any).pkg !== 'undefined';
-  const keypresserPath = isPackaged 
-    ? path.join(path.dirname(process.execPath), 'keypresser.exe')
-    : path.join(__dirname, '../../build/keypresser.exe');
-
-  exec('"' + keypresserPath + '" ' + vkCode, (err) => {
-    if (err) {
-      logger.error(`Keyboard event ${vkCode} failed:`, err);
-      if (callback) callback({ success: false, error: err.message });
-    } else {
-      if (callback) callback({ success: true });
-    }
-  });
+  VolumeManager.sendVolumeEvent(vkCode, callback);
 }
 

@@ -29,7 +29,7 @@ try {
   logger.info(`💾 Database connected successfully at ${dbPath}`);
 } catch (error) {
   logger.error('❌ Failed to connect to SQLite database:', error);
-  process.exit(1);
+  throw error;
 }
 
 export { db };
