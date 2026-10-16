@@ -554,6 +554,13 @@ html, body {
   border-radius: 50%;
   background-color: var(--accent);
   box-shadow: 0 0 5px rgba(85, 185, 170, 0.7);
+  transition: all var(--transition-fast);
+}
+
+.teal-dot.inactive {
+  background-color: var(--text-secondary);
+  box-shadow: none;
+  opacity: 0.45;
 }
 
 #connected-count-val {

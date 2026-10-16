@@ -826,7 +826,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (confirm('Revoke all paired mobile devices? They will need to scan QR again.')) {
         showToast('All mobile devices revoked', 'info');
         allDevices = [];
-        renderConnectedDevices();
+        renderConnectedDevices(0);
       }
     });
   }
@@ -1041,6 +1041,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('disconnect', () => {
       if (topStatusText) topStatusText.textContent = 'Server Reconnecting...';
+      renderConnectedDevices(0);
     });
 
     socket.on('launcher:apps:updated', (data) => {
@@ -1054,7 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('device:list:updated', (data) => {
       if (data && data.devices) {
         allDevices = data.devices;
-        renderConnectedDevices();
+        renderConnectedDevices(data.activeDeviceCount);
       }
     });
 
@@ -1161,6 +1162,10 @@ document.addEventListener('DOMContentLoaded', () => {
           currentPairingToken = token;
           updateTokenDisplay(currentPairingToken);
         }
+
+        if (typeof res.activeDeviceCount === 'number') {
+          renderConnectedDevices(res.activeDeviceCount);
+        }
       }
     });
   }
@@ -1182,17 +1187,39 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.emit('device:list', (res) => {
       if (res && res.success && Array.isArray(res.devices)) {
         allDevices = res.devices;
-        renderConnectedDevices();
+        renderConnectedDevices(res.activeDeviceCount);
       }
     });
   }
 
-  function renderConnectedDevices() {
+  function renderConnectedDevices(explicitActiveCount) {
     if (!connectedCountVal) return;
-    const count = allDevices.filter((d) => d.status === 'connected' || d.authenticated).length;
-    connectedCountVal.textContent = count > 0 ? `${count} Connected` : '1 Connected';
+
+    let activeCount = 0;
+    if (typeof explicitActiveCount === 'number') {
+      activeCount = explicitActiveCount;
+    } else if (Array.isArray(allDevices)) {
+      activeCount = allDevices.filter((d) => d.isOnline === true || d.status === 'connected' || d.authenticated === true).length;
+    }
+
+    connectedCountVal.textContent = activeCount > 0 ? `${activeCount} Connected` : '0 Connected';
+
+    const dot = document.querySelector('.connected-indicator .teal-dot');
+    if (dot) {
+      if (activeCount > 0) {
+        dot.classList.remove('inactive');
+      } else {
+        dot.classList.add('inactive');
+      }
+    }
+
     if (settingsDevicesSummary) {
-      settingsDevicesSummary.textContent = `${count > 0 ? count : 1} Authorized Device(s)`;
+      const totalTrusted = allDevices.length;
+      if (totalTrusted === 0) {
+        settingsDevicesSummary.textContent = '0 Authorized Devices';
+      } else {
+        settingsDevicesSummary.textContent = `${totalTrusted} Authorized Device${totalTrusted === 1 ? '' : 's'}${activeCount > 0 ? ` (${activeCount} Online)` : ''}`;
+      }
     }
   }
 
