@@ -507,6 +507,40 @@ html, body {
   transform: scale(0.94);
 }
 
+.ip-count-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.ip-selector-dropdown {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  outline: none;
+  cursor: pointer;
+  max-width: 170px;
+  transition: border-color var(--transition-fast);
+}
+
+.ip-selector-dropdown:hover, .ip-selector-dropdown:focus {
+  border-color: var(--accent);
+}
+
+.mono-val {
+  font-family: var(--font-mono);
+  transition: all var(--transition-fast);
+}
+
 /* Connected Indicator */
 .connected-indicator {
   display: flex;

@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let appSearchQuery = '';
   let currentPairingToken = 'a8f4...e9';
   let currentHostIp = '192.168.1.105:8081';
+  let isTokenRevealed = false;
+  let detectedIps = [];
   let latestPhoneClipboard = '';
   let clipboardHistory = [];
 
@@ -50,6 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const qrFallback = document.getElementById('qr-fallback');
   const copyIpBtn = document.getElementById('copy-ip-btn');
   const copyTokenBtn = document.getElementById('copy-token-btn');
+  const toggleTokenBtn = document.getElementById('toggle-token-btn');
+  const tokenEyeIcon = document.getElementById('token-eye-icon');
+  const hostIpSelect = document.getElementById('host-ip-select');
+  const ipCountBadge = document.getElementById('ip-count-badge');
   const terminalScreenCompact = document.getElementById('terminal-screen-compact');
 
   // --- DOM Elements: Deck Apps Page ---
@@ -181,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (data.status === 'downloading') {
         settingsUpdateStatus.textContent = `Downloading update: ${data.percent}%`;
       } else if (data.status === 'downloaded') {
-        settingsUpdateStatus.textContent = `✨ DevDeck v${data.version} is downloaded and ready!`;
+        settingsUpdateStatus.textContent = `DevDeck v${data.version} is downloaded and ready!`;
         if (restartUpdateBtn) restartUpdateBtn.style.display = 'inline-flex';
         showToast(`DevDeck v${data.version} downloaded! Restart to apply.`, 'success');
       } else if (data.status === 'up-to-date') {
@@ -285,13 +291,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ========================================================================
-  // 5. QR Code Resolver (Reliable Base64 display)
+  // 5. QR Code Resolver (Reliable Base64 display & IP Selection)
   // ========================================================================
-  function fetchQRCode() {
+  function fetchQRCode(hostOverride) {
     if (qrSpinner) qrSpinner.style.display = 'block';
     if (qrFallback) qrFallback.style.display = 'none';
 
-    fetch('/api/qr-code')
+    const url = hostOverride ? `/api/qr-code?host=${encodeURIComponent(hostOverride)}` : '/api/qr-code';
+
+    fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
@@ -309,6 +317,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.pairingToken) {
           currentPairingToken = data.pairingToken;
           updateTokenDisplay(currentPairingToken);
+        }
+
+        if (Array.isArray(data.ips) && data.ips.length > 0) {
+          renderIpSelector(data.ips, data.host || hostOverride);
         }
       })
       .catch((err) => {
@@ -337,13 +349,111 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function updateTokenDisplay(token) {
-    if (!pairingTokenVal) return;
-    if (token && token.length > 10) {
-      pairingTokenVal.textContent = `${token.substring(0, 4)}...${token.substring(token.length - 2)}`;
-    } else {
-      pairingTokenVal.textContent = token || 'a8f4...e9';
+  function renderIpSelector(ips, activeHost) {
+    detectedIps = ips || [];
+    if (!detectedIps.length) return;
+
+    const port = currentHostIp.includes(':') ? currentHostIp.split(':')[1] : 8081;
+
+    if (ipCountBadge) {
+      if (detectedIps.length > 1) {
+        ipCountBadge.textContent = `${detectedIps.length} Interfaces`;
+        ipCountBadge.style.display = 'inline-block';
+      } else {
+        ipCountBadge.style.display = 'none';
+      }
     }
+
+    if (hostIpSelect) {
+      if (detectedIps.length > 1) {
+        hostIpSelect.innerHTML = '';
+        detectedIps.forEach((ip) => {
+          const opt = document.createElement('option');
+          opt.value = ip;
+          let label = ip;
+          if (ip.startsWith('192.168.')) label += ' (Wi-Fi/LAN)';
+          else if (ip.startsWith('10.')) label += ' (Private LAN)';
+          else if (ip.startsWith('172.')) label += ' (Virtual/WSL)';
+          opt.textContent = label;
+          if (activeHost && (activeHost === ip || activeHost.startsWith(ip))) {
+            opt.selected = true;
+          }
+          hostIpSelect.appendChild(opt);
+        });
+        hostIpSelect.style.display = 'inline-block';
+        if (hostIpVal) hostIpVal.style.display = 'none';
+      } else {
+        hostIpSelect.style.display = 'none';
+        if (hostIpVal) hostIpVal.style.display = 'inline-block';
+      }
+    }
+
+    const currentIp = activeHost || detectedIps[0];
+    currentHostIp = `${currentIp}:${port}`;
+    if (hostIpVal) hostIpVal.textContent = currentHostIp;
+  }
+
+  if (hostIpSelect) {
+    hostIpSelect.addEventListener('change', (e) => {
+      const selectedIp = e.target.value;
+      const port = currentHostIp.includes(':') ? currentHostIp.split(':')[1] : 8081;
+      currentHostIp = `${selectedIp}:${port}`;
+      if (hostIpVal) hostIpVal.textContent = currentHostIp;
+      fetchQRCode(selectedIp);
+      showToast(`Active Host IP switched to ${selectedIp}`, 'info');
+    });
+  }
+
+  function updateTokenDisplay(token) {
+    if (token) currentPairingToken = token;
+    if (!pairingTokenVal) return;
+
+    if (isTokenRevealed) {
+      pairingTokenVal.textContent = currentPairingToken || 'None';
+      pairingTokenVal.style.fontSize = '11px';
+      pairingTokenVal.style.letterSpacing = '0.5px';
+    } else {
+      if (currentPairingToken && currentPairingToken.length > 10) {
+        pairingTokenVal.textContent = `${currentPairingToken.substring(0, 4)}...${currentPairingToken.substring(currentPairingToken.length - 2)}`;
+      } else {
+        pairingTokenVal.textContent = currentPairingToken || 'a8f4...e9';
+      }
+      pairingTokenVal.style.fontSize = '13px';
+      pairingTokenVal.style.letterSpacing = 'normal';
+    }
+
+    if (tokenEyeIcon) {
+      if (isTokenRevealed) {
+        // Lucide Eye-Off SVG
+        tokenEyeIcon.innerHTML = `
+          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+          <line x1="2" y1="2" x2="22" y2="22"/>
+        `;
+      } else {
+        // Lucide Eye SVG
+        tokenEyeIcon.innerHTML = `
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+          <circle cx="12" cy="12" r="3"/>
+        `;
+      }
+    }
+  }
+
+  if (toggleTokenBtn) {
+    toggleTokenBtn.addEventListener('click', () => {
+      isTokenRevealed = !isTokenRevealed;
+      updateTokenDisplay();
+      showToast(isTokenRevealed ? 'Pairing token revealed' : 'Pairing token hidden', 'info');
+    });
+  }
+
+  if (pairingTokenVal) {
+    pairingTokenVal.addEventListener('click', () => {
+      isTokenRevealed = !isTokenRevealed;
+      updateTokenDisplay();
+    });
   }
 
   // ========================================================================
@@ -599,13 +709,21 @@ document.addEventListener('DOMContentLoaded', () => {
       ? entry.timestamp.split('T')[1]?.substring(0, 8) || entry.timestamp
       : new Date().toLocaleTimeString();
     const tagClass = getLogLevelClass(entry.level);
-    const emoji = entry.emoji || (tagClass === 'error' ? '❌' : tagClass === 'warn' ? '⚠️' : '🚀');
+    
+    let iconSvg = '';
+    if (tagClass === 'error') {
+      iconSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    } else if (tagClass === 'warn') {
+      iconSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    } else {
+      iconSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#55B9AA" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    }
 
     row.innerHTML = `
       <span class="log-ts">[${timestamp}]</span>
       <span class="log-tag ${tagClass}">${entry.level.toUpperCase()}</span>
       <span class="log-sep">:</span>
-      <span class="log-ico">${emoji}</span>
+      <span class="log-ico">${iconSvg}</span>
       <span class="log-text">${escapeHtml(entry.message)}</span>
     `;
     return row;
@@ -764,11 +882,11 @@ document.addEventListener('DOMContentLoaded', () => {
     copyPromise
       .then(() => {
         const len = text.length;
-        showToast(`✓ Copied to PC clipboard (${len} char${len === 1 ? '' : 's'})`, 'success');
+        showToast(`Copied to PC clipboard (${len} char${len === 1 ? '' : 's'})`, 'success');
         if (targetBtn) {
           const origHtml = targetBtn.innerHTML;
           targetBtn.classList.add('copied');
-          targetBtn.innerHTML = `<span>✓ ${successLabel}</span>`;
+          targetBtn.innerHTML = `<span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -1px; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>${successLabel}</span>`;
           setTimeout(() => {
             targetBtn.classList.remove('copied');
             targetBtn.innerHTML = origHtml;
@@ -834,7 +952,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const isPhone = item.source === 'mobile' || item.source === 'phone';
       const badgeClass = isPhone ? 'phone' : 'desktop';
-      const badgeLabel = isPhone ? '📱 PHONE' : '💻 PC';
+      const badgeIcon = isPhone
+        ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`
+        : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+      const badgeLabel = `${badgeIcon} ${isPhone ? 'PHONE' : 'PC'}`;
       const timeStr = item.timestamp
         ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         : '';
@@ -960,7 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Actionable notification with 1-click Copy to PC
         const preview = data.content.length > 28 ? data.content.substring(0, 28) + '...' : data.content;
-        showToast(`📱 Copied on phone: "${preview}"`, 'info', {
+        showToast(`Phone clipboard: "${preview}"`, 'info', {
           label: 'Copy to PC',
           onClick: () => {
             copyToNativeClipboard(data.content, null, 'Copied');
@@ -1025,13 +1146,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!socket) return;
     socket.emit('system:info', (res) => {
       if (res && res.success) {
-        const ip = res.lanIp || '192.168.1.105';
         const port = res.port || 8081;
-        currentHostIp = `${ip}:${port}`;
+        const ips = res.ips || [];
+        const host = res.host || (ips[0] || '192.168.1.105');
+        currentHostIp = `${host}:${port}`;
         if (hostIpVal) hostIpVal.textContent = currentHostIp;
 
-        if (res.pairingToken) {
-          currentPairingToken = res.pairingToken;
+        if (Array.isArray(ips) && ips.length > 0) {
+          renderIpSelector(ips, host);
+        }
+
+        const token = res.token || res.pairingToken;
+        if (token) {
+          currentPairingToken = token;
           updateTokenDisplay(currentPairingToken);
         }
       }

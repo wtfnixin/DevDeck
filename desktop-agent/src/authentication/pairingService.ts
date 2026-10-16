@@ -101,10 +101,10 @@ export class PairingService {
     }
   }
 
-  public static async getQRCodeDataUrl(port: number): Promise<string> {
+  public static async getQRCodeDataUrl(port: number, customHost?: string): Promise<string> {
     const token = this.getActivePairingToken() || this.generatePairingToken();
     const localIPs = this.getLocalIPAddresses();
-    const host = localIPs[0] || '127.0.0.1';
+    const host = customHost || localIPs[0] || '127.0.0.1';
     const pairingUri = `devdeck://pair?host=${host}&port=${port}&token=${token}`;
     return await QRCode.toDataURL(pairingUri, {
       color: {
