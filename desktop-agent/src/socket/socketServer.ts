@@ -122,9 +122,34 @@ export class SocketServer {
         res.end(JSON.stringify({
           status: 'running',
           port,
+          pid: process.pid,
+          version: env.VERSION || '1.0.0',
+          execPath: process.execPath,
           ips: PairingService.getLocalIPAddresses(),
           token: PairingService.getActivePairingToken(),
         }));
+        return;
+      }
+
+      // API: Local-only Shutdown for Instance Takeover / Clean Restart
+      if (reqUrl.pathname === '/api/shutdown' && (req.method === 'POST' || req.method === 'GET')) {
+        const clientAddress = req.socket.remoteAddress || '';
+        const isLoopback = clientAddress === '127.0.0.1' || 
+                           clientAddress === '::1' || 
+                           clientAddress === '::ffff:127.0.0.1' || 
+                           clientAddress.includes('127.0.0.1');
+        if (!isLoopback) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Forbidden' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, message: 'DevDeck server shutting down...' }));
+        logger.info('🛑 Received local shutdown request. Stopping agent server cleanly...');
+        setTimeout(() => {
+          this.stop();
+          process.exit(0);
+        }, 200);
         return;
       }
 

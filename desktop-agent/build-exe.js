@@ -27,9 +27,11 @@ try {
   console.error('❌ Build failed:', error.message);
   process.exit(1);
 } finally {
-  const nodeNativePath = path.join(__dirname, 'lib-native', 'better_sqlite3_node22.node');
+  const nodeMajor = process.versions.node.split('.')[0];
+  const nodeNativeCandidate = path.join(__dirname, 'lib-native', `better_sqlite3_node${nodeMajor}.node`);
+  const nodeNativePath = fs.existsSync(nodeNativeCandidate) ? nodeNativeCandidate : path.join(__dirname, 'lib-native', 'better_sqlite3_node22.node');
   if (fs.existsSync(nodeNativePath)) {
     fs.copyFileSync(nodeNativePath, targetPath);
-    console.log('🔄 Restored Node.js SQLite native addon for development environment.');
+    console.log(`🔄 Restored Node.js (v${nodeMajor}) SQLite native addon for development environment.`);
   }
 }

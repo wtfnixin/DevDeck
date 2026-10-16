@@ -51,6 +51,7 @@ const envSchema = z.object({
   DATABASE_PATH: z.string().default('devdeck.db'),
   PAIRING_TOKEN: z.string().optional(),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly']).default('info'),
+  VERSION: z.string().default('1.0.0'),
 });
 
 export type Env = z.infer<typeof envSchema>;
