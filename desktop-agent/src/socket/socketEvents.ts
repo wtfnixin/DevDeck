@@ -18,6 +18,28 @@ import path from 'path';
 import { BrightnessManager } from '../utils/brightnessManager';
 import { VolumeManager } from '../utils/volumeManager';
 
+function broadcastDeviceStatus(io: Server): void {
+  try {
+    const devices = DeviceRepository.getAllTrustedDevices();
+    const activeSockets = Array.from(io.sockets.sockets.values()).filter(s => s.data.authenticated && !s.data.isLocalGui);
+    const activeDeviceIds = new Set(activeSockets.map(s => s.data.deviceId));
+    
+    const enriched = devices.map(d => ({
+      ...d,
+      isOnline: activeDeviceIds.has(d.id),
+      status: activeDeviceIds.has(d.id) ? 'connected' : 'offline',
+      authenticated: activeDeviceIds.has(d.id),
+    }));
+
+    io.emit('device:list:updated', {
+      devices: enriched,
+      activeDeviceCount: activeSockets.length,
+    });
+  } catch (error) {
+    logger.error('Failed to broadcast device status:', error);
+  }
+}
+
 export function registerSocketEvents(io: Server, socket: Socket): void {
   const isAuth = socket.data.authenticated === true;
   
@@ -37,12 +59,20 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
       socket.on('disconnect', () => {
         logEvents.off('log', logHandler);
       });
+    } else {
+      // Mobile device connected - broadcast updated status to local GUI
+      broadcastDeviceStatus(io);
     }
 
     // Handle authenticated disconnect
     socket.on('disconnect', (reason) => {
       logger.info(`🔌 Client disconnected: ${socket.data.deviceName} (${socket.data.deviceId}) [Reason: ${reason}]`);
       appEvents.emit(EVENTS.DEVICE_DISCONNECTED, { deviceId: socket.data.deviceId, socketId: socket.id });
+      if (!socket.data.isLocalGui) {
+        setImmediate(() => {
+          broadcastDeviceStatus(io);
+        });
+      }
     });
 
 
@@ -60,6 +90,42 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
         }
       } catch (error) {
         logger.error('Failed to handle clipboard:sync event:', error);
+      }
+    });
+
+    // Clipboard: Get State & History
+    socket.on('clipboard:get-state', (callback?: (res: any) => void) => {
+      try {
+        const state = ClipboardService.getState();
+        if (callback) callback({ success: true, ...state });
+      } catch (error: any) {
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // Clipboard: Send from GUI to Mobile & System Clipboard
+    socket.on('clipboard:send', (payload: { content: string }, callback?: (res: any) => void) => {
+      try {
+        if (payload && typeof payload.content === 'string') {
+          ClipboardService.sendToMobile(payload.content);
+          if (callback) callback({ success: true });
+        } else {
+          if (callback) callback({ success: false, error: 'Missing content' });
+        }
+      } catch (error: any) {
+        logger.error('Failed to handle clipboard:send event:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // Clipboard: Clear History
+    socket.on('clipboard:clear-history', (callback?: (res: any) => void) => {
+      try {
+        ClipboardService.clearHistory();
+        io.emit('clipboard:history-cleared');
+        if (callback) callback({ success: true });
+      } catch (error: any) {
+        if (callback) callback({ success: false, error: error.message });
       }
     });
 
@@ -193,7 +259,7 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
           isOnline: activeDeviceIds.has(d.id),
         }));
 
-        const res = { success: true, devices: enriched };
+        const res = { success: true, devices: enriched, activeDeviceCount: activeSockets.length };
         if (callback) callback(res);
         socket.emit('device:list:response', res);
       } catch (error: any) {
@@ -221,7 +287,7 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
 
         const res = { success: true };
         if (callback) callback(res);
-        io.emit('device:list:updated', { devices: DeviceRepository.getAllTrustedDevices() });
+        broadcastDeviceStatus(io);
       } catch (error: any) {
         logger.error('Failed to revoke device:', error);
         if (callback) callback({ success: false, error: error.message });

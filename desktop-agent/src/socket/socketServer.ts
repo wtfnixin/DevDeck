@@ -99,14 +99,20 @@ export class SocketServer {
 
       // API: Get QR Code Data URL
       if (reqUrl.pathname === '/api/qr-code' || reqUrl.pathname === '/api/pairing/qr') {
-        PairingService.getQRCodeDataUrl(port)
+        const customHost = reqUrl.searchParams.get('host') || undefined;
+        const allIps = PairingService.getLocalIPAddresses();
+        const activeHost = customHost || allIps[0] || '127.0.0.1';
+        PairingService.getQRCodeDataUrl(port, activeHost)
           .then((dataUrl) => {
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
             res.end(JSON.stringify({ 
               success: true, 
               dataUrl, 
               qrCode: dataUrl,
-              pairingToken: PairingService.getActivePairingToken() || ''
+              pairingToken: PairingService.getActivePairingToken() || '',
+              host: activeHost,
+              port,
+              ips: allIps
             }));
           })
           .catch((err) => {

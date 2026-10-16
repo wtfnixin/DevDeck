@@ -26,6 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let appSearchQuery = '';
   let currentPairingToken = 'a8f4...e9';
   let currentHostIp = '192.168.1.105:8081';
+  let isTokenRevealed = false;
+  let detectedIps = [];
+  let latestPhoneClipboard = '';
+  let clipboardHistory = [];
 
   // --- DOM Elements: Navigation & Views ---
   const navItems = document.querySelectorAll('.nav-item');
@@ -48,6 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const qrFallback = document.getElementById('qr-fallback');
   const copyIpBtn = document.getElementById('copy-ip-btn');
   const copyTokenBtn = document.getElementById('copy-token-btn');
+  const toggleTokenBtn = document.getElementById('toggle-token-btn');
+  const tokenEyeIcon = document.getElementById('token-eye-icon');
+  const hostIpSelect = document.getElementById('host-ip-select');
+  const ipCountBadge = document.getElementById('ip-count-badge');
   const terminalScreenCompact = document.getElementById('terminal-screen-compact');
 
   // --- DOM Elements: Deck Apps Page ---
@@ -78,6 +86,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const restartUpdateBtn = document.getElementById('restart-update-btn');
   const versionLabel = document.querySelector('.version-label');
 
+  // --- DOM Elements: Clipboard Hub & Transceiver ---
+  const pairingViewClipboardBtn = document.getElementById('pairing-view-clipboard-btn');
+  const quickPhoneClipContent = document.getElementById('quick-phone-clip-content');
+  const quickPhoneClipTime = document.getElementById('quick-phone-clip-time');
+  const quickPhoneClipLength = document.getElementById('quick-phone-clip-length');
+  const quickCopyPhoneBtn = document.getElementById('quick-copy-phone-btn');
+
+  const fullPhoneClipContent = document.getElementById('full-phone-clip-content');
+  const fullPhoneClipTime = document.getElementById('full-phone-clip-time');
+  const fullPhoneClipLength = document.getElementById('full-phone-clip-length');
+  const fullCopyPhoneBtn = document.getElementById('full-copy-phone-btn');
+  const clipboardHistoryContainer = document.getElementById('clipboard-history-container');
+  const clearClipboardHistoryBtn = document.getElementById('clear-clipboard-history-btn');
+
   // ========================================================================
   // 1. Tab Page Switching
   // ========================================================================
@@ -100,6 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (pageId === 'page-apps') {
       renderAppsGrid();
+    } else if (pageId === 'page-clipboard') {
+      fetchClipboardState();
     }
   }
 
@@ -113,6 +137,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (pairingViewAllLogsBtn) {
     pairingViewAllLogsBtn.addEventListener('click', () => {
       switchPage('page-terminal');
+    });
+  }
+
+  if (pairingViewClipboardBtn) {
+    pairingViewClipboardBtn.addEventListener('click', () => {
+      switchPage('page-clipboard');
     });
   }
 
@@ -157,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (data.status === 'downloading') {
         settingsUpdateStatus.textContent = `Downloading update: ${data.percent}%`;
       } else if (data.status === 'downloaded') {
-        settingsUpdateStatus.textContent = `✨ DevDeck v${data.version} is downloaded and ready!`;
+        settingsUpdateStatus.textContent = `DevDeck v${data.version} is downloaded and ready!`;
         if (restartUpdateBtn) restartUpdateBtn.style.display = 'inline-flex';
         showToast(`DevDeck v${data.version} downloaded! Restart to apply.`, 'success');
       } else if (data.status === 'up-to-date') {
@@ -202,18 +232,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // ========================================================================
   // 3. Toast Notifications
   // ========================================================================
-  function showToast(message, type = 'success') {
+  function showToast(message, type = 'success', action = null) {
     if (!toastHub) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message;
+    toast.appendChild(textSpan);
+
+    if (action && action.label && typeof action.onClick === 'function') {
+      const actionBtn = document.createElement('button');
+      actionBtn.className = 'toast-action-btn';
+      actionBtn.textContent = action.label;
+      actionBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        try {
+          action.onClick();
+        } catch (err) {
+          console.error('Toast action failed:', err);
+        }
+        toast.remove();
+      });
+      toast.appendChild(actionBtn);
+    }
+
     toastHub.appendChild(toast);
+    const duration = action ? 5500 : 2600;
     setTimeout(() => {
       toast.style.opacity = '0';
       toast.style.transform = 'translateY(8px)';
       toast.style.transition = 'all 0.2s ease';
       setTimeout(() => toast.remove(), 200);
-    }, 2600);
+    }, duration);
   }
 
   // ========================================================================
@@ -240,13 +291,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ========================================================================
-  // 5. QR Code Resolver (Reliable Base64 display)
+  // 5. QR Code Resolver (Reliable Base64 display & IP Selection)
   // ========================================================================
-  function fetchQRCode() {
+  function fetchQRCode(hostOverride) {
     if (qrSpinner) qrSpinner.style.display = 'block';
     if (qrFallback) qrFallback.style.display = 'none';
 
-    fetch('/api/qr-code')
+    const url = hostOverride ? `/api/qr-code?host=${encodeURIComponent(hostOverride)}` : '/api/qr-code';
+
+    fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
@@ -264,6 +317,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.pairingToken) {
           currentPairingToken = data.pairingToken;
           updateTokenDisplay(currentPairingToken);
+        }
+
+        if (Array.isArray(data.ips) && data.ips.length > 0) {
+          renderIpSelector(data.ips, data.host || hostOverride);
         }
       })
       .catch((err) => {
@@ -292,13 +349,111 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function updateTokenDisplay(token) {
-    if (!pairingTokenVal) return;
-    if (token && token.length > 10) {
-      pairingTokenVal.textContent = `${token.substring(0, 4)}...${token.substring(token.length - 2)}`;
-    } else {
-      pairingTokenVal.textContent = token || 'a8f4...e9';
+  function renderIpSelector(ips, activeHost) {
+    detectedIps = ips || [];
+    if (!detectedIps.length) return;
+
+    const port = currentHostIp.includes(':') ? currentHostIp.split(':')[1] : 8081;
+
+    if (ipCountBadge) {
+      if (detectedIps.length > 1) {
+        ipCountBadge.textContent = `${detectedIps.length} Interfaces`;
+        ipCountBadge.style.display = 'inline-block';
+      } else {
+        ipCountBadge.style.display = 'none';
+      }
     }
+
+    if (hostIpSelect) {
+      if (detectedIps.length > 1) {
+        hostIpSelect.innerHTML = '';
+        detectedIps.forEach((ip) => {
+          const opt = document.createElement('option');
+          opt.value = ip;
+          let label = ip;
+          if (ip.startsWith('192.168.')) label += ' (Wi-Fi/LAN)';
+          else if (ip.startsWith('10.')) label += ' (Private LAN)';
+          else if (ip.startsWith('172.')) label += ' (Virtual/WSL)';
+          opt.textContent = label;
+          if (activeHost && (activeHost === ip || activeHost.startsWith(ip))) {
+            opt.selected = true;
+          }
+          hostIpSelect.appendChild(opt);
+        });
+        hostIpSelect.style.display = 'inline-block';
+        if (hostIpVal) hostIpVal.style.display = 'none';
+      } else {
+        hostIpSelect.style.display = 'none';
+        if (hostIpVal) hostIpVal.style.display = 'inline-block';
+      }
+    }
+
+    const currentIp = activeHost || detectedIps[0];
+    currentHostIp = `${currentIp}:${port}`;
+    if (hostIpVal) hostIpVal.textContent = currentHostIp;
+  }
+
+  if (hostIpSelect) {
+    hostIpSelect.addEventListener('change', (e) => {
+      const selectedIp = e.target.value;
+      const port = currentHostIp.includes(':') ? currentHostIp.split(':')[1] : 8081;
+      currentHostIp = `${selectedIp}:${port}`;
+      if (hostIpVal) hostIpVal.textContent = currentHostIp;
+      fetchQRCode(selectedIp);
+      showToast(`Active Host IP switched to ${selectedIp}`, 'info');
+    });
+  }
+
+  function updateTokenDisplay(token) {
+    if (token) currentPairingToken = token;
+    if (!pairingTokenVal) return;
+
+    if (isTokenRevealed) {
+      pairingTokenVal.textContent = currentPairingToken || 'None';
+      pairingTokenVal.style.fontSize = '11px';
+      pairingTokenVal.style.letterSpacing = '0.5px';
+    } else {
+      if (currentPairingToken && currentPairingToken.length > 10) {
+        pairingTokenVal.textContent = `${currentPairingToken.substring(0, 4)}...${currentPairingToken.substring(currentPairingToken.length - 2)}`;
+      } else {
+        pairingTokenVal.textContent = currentPairingToken || 'a8f4...e9';
+      }
+      pairingTokenVal.style.fontSize = '13px';
+      pairingTokenVal.style.letterSpacing = 'normal';
+    }
+
+    if (tokenEyeIcon) {
+      if (isTokenRevealed) {
+        // Lucide Eye-Off SVG
+        tokenEyeIcon.innerHTML = `
+          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+          <line x1="2" y1="2" x2="22" y2="22"/>
+        `;
+      } else {
+        // Lucide Eye SVG
+        tokenEyeIcon.innerHTML = `
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+          <circle cx="12" cy="12" r="3"/>
+        `;
+      }
+    }
+  }
+
+  if (toggleTokenBtn) {
+    toggleTokenBtn.addEventListener('click', () => {
+      isTokenRevealed = !isTokenRevealed;
+      updateTokenDisplay();
+      showToast(isTokenRevealed ? 'Pairing token revealed' : 'Pairing token hidden', 'info');
+    });
+  }
+
+  if (pairingTokenVal) {
+    pairingTokenVal.addEventListener('click', () => {
+      isTokenRevealed = !isTokenRevealed;
+      updateTokenDisplay();
+    });
   }
 
   // ========================================================================
@@ -554,13 +709,21 @@ document.addEventListener('DOMContentLoaded', () => {
       ? entry.timestamp.split('T')[1]?.substring(0, 8) || entry.timestamp
       : new Date().toLocaleTimeString();
     const tagClass = getLogLevelClass(entry.level);
-    const emoji = entry.emoji || (tagClass === 'error' ? '❌' : tagClass === 'warn' ? '⚠️' : '🚀');
+    
+    let iconSvg = '';
+    if (tagClass === 'error') {
+      iconSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    } else if (tagClass === 'warn') {
+      iconSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    } else {
+      iconSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#55B9AA" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    }
 
     row.innerHTML = `
       <span class="log-ts">[${timestamp}]</span>
       <span class="log-tag ${tagClass}">${entry.level.toUpperCase()}</span>
       <span class="log-sep">:</span>
-      <span class="log-ico">${emoji}</span>
+      <span class="log-ico">${iconSvg}</span>
       <span class="log-text">${escapeHtml(entry.message)}</span>
     `;
     return row;
@@ -663,7 +826,190 @@ document.addEventListener('DOMContentLoaded', () => {
       if (confirm('Revoke all paired mobile devices? They will need to scan QR again.')) {
         showToast('All mobile devices revoked', 'info');
         allDevices = [];
-        renderConnectedDevices();
+        renderConnectedDevices(0);
+      }
+    });
+  }
+
+  // ========================================================================
+  // 8.5 Clipboard Hub & Transceiver Logic
+  // ========================================================================
+
+  /**
+   * Copies text to the PC system clipboard (Electron native API or Web API fallback)
+   */
+  function copyToNativeClipboard(text, targetBtn, successLabel = 'Copied to PC!') {
+    if (!text) {
+      showToast('Clipboard content is empty', 'info');
+      return;
+    }
+
+    let copyPromise = null;
+
+    // Electron desktop native clipboard (instant, zero browser permissions required)
+    if (window.require) {
+      try {
+        const { clipboard } = window.require('electron');
+        if (clipboard && clipboard.writeText) {
+          clipboard.writeText(text);
+          copyPromise = Promise.resolve();
+        }
+      } catch (e) {
+        // Fallback to browser API
+      }
+    }
+
+    if (!copyPromise) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        copyPromise = navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          copyPromise = Promise.resolve();
+        } catch (err) {
+          copyPromise = Promise.reject(err);
+        }
+        document.body.removeChild(ta);
+      }
+    }
+
+    copyPromise
+      .then(() => {
+        const len = text.length;
+        showToast(`Copied to PC clipboard (${len} char${len === 1 ? '' : 's'})`, 'success');
+        if (targetBtn) {
+          const origHtml = targetBtn.innerHTML;
+          targetBtn.classList.add('copied');
+          targetBtn.innerHTML = `<span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -1px; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>${successLabel}</span>`;
+          setTimeout(() => {
+            targetBtn.classList.remove('copied');
+            targetBtn.innerHTML = origHtml;
+          }, 1800);
+        }
+      })
+      .catch((err) => {
+        console.error('Clipboard copy error:', err);
+        showToast('Failed to copy to clipboard', 'error');
+      });
+  }
+
+  /**
+   * Updates received phone clipboard UI on both dashboard and dedicated page
+   */
+  function updatePhoneClipUI(content, timestamp) {
+    latestPhoneClipboard = content || '';
+    const hasContent = Boolean(latestPhoneClipboard && latestPhoneClipboard.length > 0);
+    const timeStr = timestamp
+      ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      : 'Just now';
+    const lenStr = `${latestPhoneClipboard.length} char${latestPhoneClipboard.length === 1 ? '' : 's'}`;
+
+    // Quick access card on pairing dashboard
+    if (quickPhoneClipContent) {
+      if (hasContent) {
+        quickPhoneClipContent.textContent = latestPhoneClipboard;
+      } else {
+        quickPhoneClipContent.innerHTML = '<span class="empty-hint">No content received from phone yet. Copy text on your phone to see it here!</span>';
+      }
+    }
+    if (quickPhoneClipTime) quickPhoneClipTime.textContent = hasContent ? timeStr : 'Waiting for copy...';
+    if (quickPhoneClipLength) quickPhoneClipLength.textContent = lenStr;
+    if (quickCopyPhoneBtn) quickCopyPhoneBtn.disabled = !hasContent;
+
+    // Full hub page
+    if (fullPhoneClipContent) {
+      if (hasContent) {
+        fullPhoneClipContent.textContent = latestPhoneClipboard;
+      } else {
+        fullPhoneClipContent.innerHTML = '<span class="empty-hint">No content received from phone yet. Copy text on your phone and it will appear here!</span>';
+      }
+    }
+    if (fullPhoneClipTime) fullPhoneClipTime.textContent = hasContent ? timeStr : 'Waiting for copy...';
+    if (fullPhoneClipLength) fullPhoneClipLength.textContent = lenStr;
+    if (fullCopyPhoneBtn) fullCopyPhoneBtn.disabled = !hasContent;
+  }
+
+  /**
+   * Renders rolling synchronized clipboard history
+   */
+  function renderClipboardHistory(items) {
+    if (!clipboardHistoryContainer) return;
+    if (!items || items.length === 0) {
+      clipboardHistoryContainer.innerHTML = '<div class="clipboard-history-empty">No sync history yet. Items copied on either device will appear here.</div>';
+      return;
+    }
+
+    clipboardHistoryContainer.innerHTML = '';
+    items.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'clipboard-history-item';
+
+      const isPhone = item.source === 'mobile' || item.source === 'phone';
+      const badgeClass = isPhone ? 'phone' : 'desktop';
+      const badgeIcon = isPhone
+        ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`
+        : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+      const badgeLabel = `${badgeIcon} ${isPhone ? 'PHONE' : 'PC'}`;
+      const timeStr = item.timestamp
+        ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        : '';
+
+      const contentSafe = escapeHtml(item.content || '');
+
+      row.innerHTML = `
+        <div class="clip-item-left">
+          <span class="clip-item-badge ${badgeClass}">${badgeLabel}</span>
+          <span class="clip-item-content" title="${contentSafe}">${contentSafe}</span>
+        </div>
+        <div class="clip-item-right">
+          <span class="clip-item-time">${timeStr}</span>
+          <button class="clip-item-copy-btn" title="Copy to PC">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            <span>Copy</span>
+          </button>
+        </div>
+      `;
+
+      const copyBtn = row.querySelector('.clip-item-copy-btn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          copyToNativeClipboard(item.content, copyBtn, 'Copied');
+        });
+      }
+
+      clipboardHistoryContainer.appendChild(row);
+    });
+  }
+
+  // --- Wire UI Events for Quick Access Card & Full Page ---
+  if (quickCopyPhoneBtn) {
+    quickCopyPhoneBtn.addEventListener('click', () => {
+      copyToNativeClipboard(latestPhoneClipboard, quickCopyPhoneBtn, 'Copied to PC!');
+    });
+  }
+
+  if (fullCopyPhoneBtn) {
+    fullCopyPhoneBtn.addEventListener('click', () => {
+      copyToNativeClipboard(latestPhoneClipboard, fullCopyPhoneBtn, 'Copied to PC!');
+    });
+  }
+
+  // Clear History button
+  if (clearClipboardHistoryBtn) {
+    clearClipboardHistoryBtn.addEventListener('click', () => {
+      if (confirm('Clear synchronized clipboard history?')) {
+        if (socket) {
+          socket.emit('clipboard:clear-history');
+        }
       }
     });
   }
@@ -690,10 +1036,12 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchQRCode();
       fetchApps();
       fetchDevices();
+      fetchClipboardState();
     });
 
     socket.on('disconnect', () => {
       if (topStatusText) topStatusText.textContent = 'Server Reconnecting...';
+      renderConnectedDevices(0);
     });
 
     socket.on('launcher:apps:updated', (data) => {
@@ -707,8 +1055,59 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('device:list:updated', (data) => {
       if (data && data.devices) {
         allDevices = data.devices;
-        renderConnectedDevices();
+        renderConnectedDevices(data.activeDeviceCount);
       }
+    });
+
+    socket.on('clipboard:sync', (data) => {
+      if (!data || !data.content) return;
+
+      const isPhone = data.source === 'mobile' || data.source === 'phone';
+
+      if (isPhone) {
+        // Only update "Received from Phone" UI if the content originated from mobile phone
+        updatePhoneClipUI(data.content, data.timestamp);
+
+        // Prepend to history if not duplicate of latest item
+        if (!clipboardHistory.length || clipboardHistory[0].content !== data.content) {
+          clipboardHistory.unshift({
+            id: 'clip_' + Date.now(),
+            content: data.content,
+            source: 'phone',
+            timestamp: data.timestamp || Date.now()
+          });
+          if (clipboardHistory.length > 25) clipboardHistory.pop();
+          renderClipboardHistory(clipboardHistory);
+        }
+
+        // Actionable notification with 1-click Copy to PC
+        const preview = data.content.length > 28 ? data.content.substring(0, 28) + '...' : data.content;
+        showToast(`Phone clipboard: "${preview}"`, 'info', {
+          label: 'Copy to PC',
+          onClick: () => {
+            copyToNativeClipboard(data.content, null, 'Copied');
+          }
+        });
+      } else {
+        // Originated from desktop (Windows Ctrl+C background sync)
+        // Record in history log without overwriting Phone UI or firing phone toast
+        if (!clipboardHistory.length || clipboardHistory[0].content !== data.content) {
+          clipboardHistory.unshift({
+            id: 'clip_' + Date.now(),
+            content: data.content,
+            source: 'desktop',
+            timestamp: data.timestamp || Date.now()
+          });
+          if (clipboardHistory.length > 25) clipboardHistory.pop();
+          renderClipboardHistory(clipboardHistory);
+        }
+      }
+    });
+
+    socket.on('clipboard:history-cleared', () => {
+      clipboardHistory = [];
+      renderClipboardHistory(clipboardHistory);
+      showToast('Clipboard history cleared', 'info');
     });
 
     socket.on('logs:history', (data) => {
@@ -725,18 +1124,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function fetchClipboardState() {
+    if (!socket) return;
+    socket.emit('clipboard:get-state', (res) => {
+      if (res && res.success) {
+        if (res.lastPhoneContent) {
+          const lastPhoneItem = (res.history || []).find((h) => h.source === 'mobile' || h.source === 'phone');
+          updatePhoneClipUI(res.lastPhoneContent, lastPhoneItem ? lastPhoneItem.timestamp : null);
+        }
+        if (Array.isArray(res.history)) {
+          clipboardHistory = res.history.map((item) => ({
+            ...item,
+            source: (item.source === 'mobile' || item.source === 'phone') ? 'phone' : 'desktop'
+          }));
+          renderClipboardHistory(clipboardHistory);
+        }
+      }
+    });
+  }
+
   function fetchSystemInfo() {
     if (!socket) return;
     socket.emit('system:info', (res) => {
       if (res && res.success) {
-        const ip = res.lanIp || '192.168.1.105';
         const port = res.port || 8081;
-        currentHostIp = `${ip}:${port}`;
+        const ips = res.ips || [];
+        const host = res.host || (ips[0] || '192.168.1.105');
+        currentHostIp = `${host}:${port}`;
         if (hostIpVal) hostIpVal.textContent = currentHostIp;
 
-        if (res.pairingToken) {
-          currentPairingToken = res.pairingToken;
+        if (Array.isArray(ips) && ips.length > 0) {
+          renderIpSelector(ips, host);
+        }
+
+        const token = res.token || res.pairingToken;
+        if (token) {
+          currentPairingToken = token;
           updateTokenDisplay(currentPairingToken);
+        }
+
+        if (typeof res.activeDeviceCount === 'number') {
+          renderConnectedDevices(res.activeDeviceCount);
         }
       }
     });
@@ -759,17 +1187,39 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.emit('device:list', (res) => {
       if (res && res.success && Array.isArray(res.devices)) {
         allDevices = res.devices;
-        renderConnectedDevices();
+        renderConnectedDevices(res.activeDeviceCount);
       }
     });
   }
 
-  function renderConnectedDevices() {
+  function renderConnectedDevices(explicitActiveCount) {
     if (!connectedCountVal) return;
-    const count = allDevices.filter((d) => d.status === 'connected' || d.authenticated).length;
-    connectedCountVal.textContent = count > 0 ? `${count} Connected` : '1 Connected';
+
+    let activeCount = 0;
+    if (typeof explicitActiveCount === 'number') {
+      activeCount = explicitActiveCount;
+    } else if (Array.isArray(allDevices)) {
+      activeCount = allDevices.filter((d) => d.isOnline === true || d.status === 'connected' || d.authenticated === true).length;
+    }
+
+    connectedCountVal.textContent = activeCount > 0 ? `${activeCount} Connected` : '0 Connected';
+
+    const dot = document.querySelector('.connected-indicator .teal-dot');
+    if (dot) {
+      if (activeCount > 0) {
+        dot.classList.remove('inactive');
+      } else {
+        dot.classList.add('inactive');
+      }
+    }
+
     if (settingsDevicesSummary) {
-      settingsDevicesSummary.textContent = `${count > 0 ? count : 1} Authorized Device(s)`;
+      const totalTrusted = allDevices.length;
+      if (totalTrusted === 0) {
+        settingsDevicesSummary.textContent = '0 Authorized Devices';
+      } else {
+        settingsDevicesSummary.textContent = `${totalTrusted} Authorized Device${totalTrusted === 1 ? '' : 's'}${activeCount > 0 ? ` (${activeCount} Online)` : ''}`;
+      }
     }
   }
 
