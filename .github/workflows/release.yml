@@ -120,6 +120,7 @@ jobs:
           path: |
             desktop-agent/build/devdeck-agent.exe
             desktop-agent/build/DevDeckAgentSetup.exe
+            desktop-agent/build/latest.yml
 
   # Job 3: Create GitHub Release and Upload Binaries
   create-release:
@@ -160,5 +161,6 @@ jobs:
             ./release-assets/DevDeck.apk
             ./release-assets/devdeck-agent.exe
             ./release-assets/DevDeckAgentSetup.exe
+            ./release-assets/latest.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

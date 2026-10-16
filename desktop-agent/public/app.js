@@ -73,6 +73,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const regenerateTokenBtn = document.getElementById('regenerate-token-btn');
   const revokeDevicesBtn = document.getElementById('revoke-devices-btn');
   const settingsDevicesSummary = document.getElementById('settings-devices-summary');
+  const settingsUpdateStatus = document.getElementById('settings-update-status');
+  const checkUpdatesBtn = document.getElementById('check-updates-btn');
+  const restartUpdateBtn = document.getElementById('restart-update-btn');
+  const versionLabel = document.querySelector('.version-label');
 
   // ========================================================================
   // 1. Tab Page Switching
@@ -130,6 +134,69 @@ document.addEventListener('DOMContentLoaded', () => {
       if (ipcRenderer) ipcRenderer.send('window:close');
       else showToast('Close to tray is enabled in desktop app', 'info');
     });
+  }
+
+  // ========================================================================
+  // 2.5 Software Updates (Electron Auto-Updater)
+  // ========================================================================
+  if (ipcRenderer) {
+    ipcRenderer.invoke('app:get-version').then((ver) => {
+      if (ver) {
+        if (versionLabel) versionLabel.textContent = `v${ver}`;
+        if (settingsUpdateStatus) settingsUpdateStatus.textContent = `v${ver} — Up to date`;
+      }
+    }).catch(() => {});
+
+    ipcRenderer.on('update:status', (event, data) => {
+      if (!settingsUpdateStatus) return;
+      if (data.status === 'checking') {
+        settingsUpdateStatus.textContent = 'Checking GitHub Releases for updates...';
+      } else if (data.status === 'available') {
+        settingsUpdateStatus.textContent = `New update v${data.version} found! Downloading...`;
+        showToast(`Update v${data.version} is downloading in background`, 'info');
+      } else if (data.status === 'downloading') {
+        settingsUpdateStatus.textContent = `Downloading update: ${data.percent}%`;
+      } else if (data.status === 'downloaded') {
+        settingsUpdateStatus.textContent = `✨ DevDeck v${data.version} is downloaded and ready!`;
+        if (restartUpdateBtn) restartUpdateBtn.style.display = 'inline-flex';
+        showToast(`DevDeck v${data.version} downloaded! Restart to apply.`, 'success');
+      } else if (data.status === 'up-to-date') {
+        settingsUpdateStatus.textContent = `v${data.version} — You are on the latest version`;
+      } else if (data.status === 'error') {
+        settingsUpdateStatus.textContent = `Update check: ${data.error || 'Check network'}`;
+      }
+    });
+
+    if (checkUpdatesBtn) {
+      checkUpdatesBtn.addEventListener('click', () => {
+        if (settingsUpdateStatus) settingsUpdateStatus.textContent = 'Checking for updates...';
+        ipcRenderer.invoke('app:check-for-updates').then((res) => {
+          if (!res.success && res.message) {
+            if (settingsUpdateStatus) settingsUpdateStatus.textContent = res.message;
+            showToast(res.message, 'info');
+          }
+        }).catch((err) => {
+          if (settingsUpdateStatus) settingsUpdateStatus.textContent = err.message;
+        });
+      });
+    }
+
+    if (restartUpdateBtn) {
+      restartUpdateBtn.addEventListener('click', () => {
+        ipcRenderer.invoke('app:install-update');
+      });
+    }
+  } else {
+    // Non-Electron web browser fallback
+    fetch('/api/status')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.version) {
+          if (versionLabel) versionLabel.textContent = `v${data.version}`;
+          if (settingsUpdateStatus) settingsUpdateStatus.textContent = `v${data.version} (Web Dashboard)`;
+        }
+      })
+      .catch(() => {});
   }
 
   // ========================================================================
