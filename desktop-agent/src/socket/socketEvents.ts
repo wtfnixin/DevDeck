@@ -63,6 +63,42 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
       }
     });
 
+    // Clipboard: Get State & History
+    socket.on('clipboard:get-state', (callback?: (res: any) => void) => {
+      try {
+        const state = ClipboardService.getState();
+        if (callback) callback({ success: true, ...state });
+      } catch (error: any) {
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // Clipboard: Send from GUI to Mobile & System Clipboard
+    socket.on('clipboard:send', (payload: { content: string }, callback?: (res: any) => void) => {
+      try {
+        if (payload && typeof payload.content === 'string') {
+          ClipboardService.sendToMobile(payload.content);
+          if (callback) callback({ success: true });
+        } else {
+          if (callback) callback({ success: false, error: 'Missing content' });
+        }
+      } catch (error: any) {
+        logger.error('Failed to handle clipboard:send event:', error);
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
+    // Clipboard: Clear History
+    socket.on('clipboard:clear-history', (callback?: (res: any) => void) => {
+      try {
+        ClipboardService.clearHistory();
+        io.emit('clipboard:history-cleared');
+        if (callback) callback({ success: true });
+      } catch (error: any) {
+        if (callback) callback({ success: false, error: error.message });
+      }
+    });
+
     // Launcher: Query available apps
     socket.on('launcher:apps', (callback?: (res: any) => void) => {
       try {

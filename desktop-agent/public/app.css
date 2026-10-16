@@ -1222,3 +1222,367 @@ html, body {
   cursor: pointer;
 }
 
+/* ==========================================================================
+   CLIPBOARD TRANSCEIVER & HISTORY
+   ========================================================================== */
+.clipboard-dual-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .clipboard-dual-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.clipboard-box {
+  background: var(--terminal-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.clipboard-box:hover {
+  border-color: rgba(85, 185, 170, 0.3);
+}
+
+.clipboard-box.received-box {
+  border-left: 3px solid #6366F1; /* Indigo accent for phone */
+}
+
+.clipboard-box.send-box {
+  border-left: 3px solid var(--accent); /* Teal accent for PC */
+}
+
+.clipboard-box.full-width {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.clip-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.clip-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.clip-tag.phone-tag {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818CF8;
+}
+
+.clip-tag.pc-tag {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.clip-time-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.clip-mini-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clip-mini-btn:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.clip-body-preview {
+  min-height: 80px;
+  max-height: 120px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  word-break: break-all;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.clip-body-preview.expanded {
+  min-height: 140px;
+  max-height: 220px;
+}
+
+.clip-body-preview .empty-hint {
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.clip-textarea-input {
+  min-height: 80px;
+  max-height: 120px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.clip-textarea-input.expanded {
+  min-height: 140px;
+  max-height: 220px;
+}
+
+.clip-textarea-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+
+.clip-box-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.clip-counter {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.clip-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clip-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.clip-action-btn.primary {
+  background: #6366F1;
+  color: #FFFFFF;
+}
+
+.clip-action-btn.primary:not(:disabled):hover {
+  background: #4F46E5;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.clip-action-btn.accent {
+  background: var(--accent);
+  color: #121517;
+}
+
+.clip-action-btn.accent:not(:disabled):hover {
+  background: #68D4C3;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+.clip-action-btn.copied {
+  background: #10B981 !important;
+  color: #FFFFFF !important;
+}
+
+/* Status Pill with pulse dot */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.status-pill .pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 6px #10B981;
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+/* Clipboard History */
+.clipboard-history-list {
+  background: var(--terminal-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  max-height: 380px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.clipboard-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background var(--transition-fast);
+}
+
+.clipboard-history-item:last-child {
+  border-bottom: none;
+}
+
+.clipboard-history-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.clip-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.clip-item-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.clip-item-badge.phone {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818CF8;
+}
+
+.clip-item-badge.desktop {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.clip-item-content {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.clip-item-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.clip-item-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.clip-item-copy-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--transition-fast);
+}
+
+.clip-item-copy-btn:hover {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.clipboard-history-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Toast with Action Button */
+.toast .toast-action-btn {
+  background: var(--accent);
+  color: #121517;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: opacity var(--transition-fast);
+}
+
+.toast .toast-action-btn:hover {
+  opacity: 0.9;
+}
+

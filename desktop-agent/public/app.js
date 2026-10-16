@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let appSearchQuery = '';
   let currentPairingToken = 'a8f4...e9';
   let currentHostIp = '192.168.1.105:8081';
+  let latestPhoneClipboard = '';
+  let clipboardHistory = [];
 
   // --- DOM Elements: Navigation & Views ---
   const navItems = document.querySelectorAll('.nav-item');
@@ -78,6 +80,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const restartUpdateBtn = document.getElementById('restart-update-btn');
   const versionLabel = document.querySelector('.version-label');
 
+  // --- DOM Elements: Clipboard Hub & Transceiver ---
+  const pairingViewClipboardBtn = document.getElementById('pairing-view-clipboard-btn');
+  const quickPhoneClipContent = document.getElementById('quick-phone-clip-content');
+  const quickPhoneClipTime = document.getElementById('quick-phone-clip-time');
+  const quickPhoneClipLength = document.getElementById('quick-phone-clip-length');
+  const quickCopyPhoneBtn = document.getElementById('quick-copy-phone-btn');
+
+  const fullPhoneClipContent = document.getElementById('full-phone-clip-content');
+  const fullPhoneClipTime = document.getElementById('full-phone-clip-time');
+  const fullPhoneClipLength = document.getElementById('full-phone-clip-length');
+  const fullCopyPhoneBtn = document.getElementById('full-copy-phone-btn');
+  const clipboardHistoryContainer = document.getElementById('clipboard-history-container');
+  const clearClipboardHistoryBtn = document.getElementById('clear-clipboard-history-btn');
+
   // ========================================================================
   // 1. Tab Page Switching
   // ========================================================================
@@ -100,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (pageId === 'page-apps') {
       renderAppsGrid();
+    } else if (pageId === 'page-clipboard') {
+      fetchClipboardState();
     }
   }
 
@@ -113,6 +131,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (pairingViewAllLogsBtn) {
     pairingViewAllLogsBtn.addEventListener('click', () => {
       switchPage('page-terminal');
+    });
+  }
+
+  if (pairingViewClipboardBtn) {
+    pairingViewClipboardBtn.addEventListener('click', () => {
+      switchPage('page-clipboard');
     });
   }
 
@@ -202,18 +226,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // ========================================================================
   // 3. Toast Notifications
   // ========================================================================
-  function showToast(message, type = 'success') {
+  function showToast(message, type = 'success', action = null) {
     if (!toastHub) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message;
+    toast.appendChild(textSpan);
+
+    if (action && action.label && typeof action.onClick === 'function') {
+      const actionBtn = document.createElement('button');
+      actionBtn.className = 'toast-action-btn';
+      actionBtn.textContent = action.label;
+      actionBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        try {
+          action.onClick();
+        } catch (err) {
+          console.error('Toast action failed:', err);
+        }
+        toast.remove();
+      });
+      toast.appendChild(actionBtn);
+    }
+
     toastHub.appendChild(toast);
+    const duration = action ? 5500 : 2600;
     setTimeout(() => {
       toast.style.opacity = '0';
       toast.style.transform = 'translateY(8px)';
       toast.style.transition = 'all 0.2s ease';
       setTimeout(() => toast.remove(), 200);
-    }, 2600);
+    }, duration);
   }
 
   // ========================================================================
@@ -669,6 +714,186 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ========================================================================
+  // 8.5 Clipboard Hub & Transceiver Logic
+  // ========================================================================
+
+  /**
+   * Copies text to the PC system clipboard (Electron native API or Web API fallback)
+   */
+  function copyToNativeClipboard(text, targetBtn, successLabel = 'Copied to PC!') {
+    if (!text) {
+      showToast('Clipboard content is empty', 'info');
+      return;
+    }
+
+    let copyPromise = null;
+
+    // Electron desktop native clipboard (instant, zero browser permissions required)
+    if (window.require) {
+      try {
+        const { clipboard } = window.require('electron');
+        if (clipboard && clipboard.writeText) {
+          clipboard.writeText(text);
+          copyPromise = Promise.resolve();
+        }
+      } catch (e) {
+        // Fallback to browser API
+      }
+    }
+
+    if (!copyPromise) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        copyPromise = navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          copyPromise = Promise.resolve();
+        } catch (err) {
+          copyPromise = Promise.reject(err);
+        }
+        document.body.removeChild(ta);
+      }
+    }
+
+    copyPromise
+      .then(() => {
+        const len = text.length;
+        showToast(`✓ Copied to PC clipboard (${len} char${len === 1 ? '' : 's'})`, 'success');
+        if (targetBtn) {
+          const origHtml = targetBtn.innerHTML;
+          targetBtn.classList.add('copied');
+          targetBtn.innerHTML = `<span>✓ ${successLabel}</span>`;
+          setTimeout(() => {
+            targetBtn.classList.remove('copied');
+            targetBtn.innerHTML = origHtml;
+          }, 1800);
+        }
+      })
+      .catch((err) => {
+        console.error('Clipboard copy error:', err);
+        showToast('Failed to copy to clipboard', 'error');
+      });
+  }
+
+  /**
+   * Updates received phone clipboard UI on both dashboard and dedicated page
+   */
+  function updatePhoneClipUI(content, timestamp) {
+    latestPhoneClipboard = content || '';
+    const hasContent = Boolean(latestPhoneClipboard && latestPhoneClipboard.length > 0);
+    const timeStr = timestamp
+      ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      : 'Just now';
+    const lenStr = `${latestPhoneClipboard.length} char${latestPhoneClipboard.length === 1 ? '' : 's'}`;
+
+    // Quick access card on pairing dashboard
+    if (quickPhoneClipContent) {
+      if (hasContent) {
+        quickPhoneClipContent.textContent = latestPhoneClipboard;
+      } else {
+        quickPhoneClipContent.innerHTML = '<span class="empty-hint">No content received from phone yet. Copy text on your phone to see it here!</span>';
+      }
+    }
+    if (quickPhoneClipTime) quickPhoneClipTime.textContent = hasContent ? timeStr : 'Waiting for copy...';
+    if (quickPhoneClipLength) quickPhoneClipLength.textContent = lenStr;
+    if (quickCopyPhoneBtn) quickCopyPhoneBtn.disabled = !hasContent;
+
+    // Full hub page
+    if (fullPhoneClipContent) {
+      if (hasContent) {
+        fullPhoneClipContent.textContent = latestPhoneClipboard;
+      } else {
+        fullPhoneClipContent.innerHTML = '<span class="empty-hint">No content received from phone yet. Copy text on your phone and it will appear here!</span>';
+      }
+    }
+    if (fullPhoneClipTime) fullPhoneClipTime.textContent = hasContent ? timeStr : 'Waiting for copy...';
+    if (fullPhoneClipLength) fullPhoneClipLength.textContent = lenStr;
+    if (fullCopyPhoneBtn) fullCopyPhoneBtn.disabled = !hasContent;
+  }
+
+  /**
+   * Renders rolling synchronized clipboard history
+   */
+  function renderClipboardHistory(items) {
+    if (!clipboardHistoryContainer) return;
+    if (!items || items.length === 0) {
+      clipboardHistoryContainer.innerHTML = '<div class="clipboard-history-empty">No sync history yet. Items copied on either device will appear here.</div>';
+      return;
+    }
+
+    clipboardHistoryContainer.innerHTML = '';
+    items.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'clipboard-history-item';
+
+      const isPhone = item.source === 'mobile' || item.source === 'phone';
+      const badgeClass = isPhone ? 'phone' : 'desktop';
+      const badgeLabel = isPhone ? '📱 PHONE' : '💻 PC';
+      const timeStr = item.timestamp
+        ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        : '';
+
+      const contentSafe = escapeHtml(item.content || '');
+
+      row.innerHTML = `
+        <div class="clip-item-left">
+          <span class="clip-item-badge ${badgeClass}">${badgeLabel}</span>
+          <span class="clip-item-content" title="${contentSafe}">${contentSafe}</span>
+        </div>
+        <div class="clip-item-right">
+          <span class="clip-item-time">${timeStr}</span>
+          <button class="clip-item-copy-btn" title="Copy to PC">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            <span>Copy</span>
+          </button>
+        </div>
+      `;
+
+      const copyBtn = row.querySelector('.clip-item-copy-btn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          copyToNativeClipboard(item.content, copyBtn, 'Copied');
+        });
+      }
+
+      clipboardHistoryContainer.appendChild(row);
+    });
+  }
+
+  // --- Wire UI Events for Quick Access Card & Full Page ---
+  if (quickCopyPhoneBtn) {
+    quickCopyPhoneBtn.addEventListener('click', () => {
+      copyToNativeClipboard(latestPhoneClipboard, quickCopyPhoneBtn, 'Copied to PC!');
+    });
+  }
+
+  if (fullCopyPhoneBtn) {
+    fullCopyPhoneBtn.addEventListener('click', () => {
+      copyToNativeClipboard(latestPhoneClipboard, fullCopyPhoneBtn, 'Copied to PC!');
+    });
+  }
+
+  // Clear History button
+  if (clearClipboardHistoryBtn) {
+    clearClipboardHistoryBtn.addEventListener('click', () => {
+      if (confirm('Clear synchronized clipboard history?')) {
+        if (socket) {
+          socket.emit('clipboard:clear-history');
+        }
+      }
+    });
+  }
+
+  // ========================================================================
   // 9. Socket.IO Connection & Backend Synchronization
   // ========================================================================
   function initSocket() {
@@ -690,6 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchQRCode();
       fetchApps();
       fetchDevices();
+      fetchClipboardState();
     });
 
     socket.on('disconnect', () => {
@@ -711,6 +937,57 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    socket.on('clipboard:sync', (data) => {
+      if (!data || !data.content) return;
+
+      const isPhone = data.source === 'mobile' || data.source === 'phone';
+
+      if (isPhone) {
+        // Only update "Received from Phone" UI if the content originated from mobile phone
+        updatePhoneClipUI(data.content, data.timestamp);
+
+        // Prepend to history if not duplicate of latest item
+        if (!clipboardHistory.length || clipboardHistory[0].content !== data.content) {
+          clipboardHistory.unshift({
+            id: 'clip_' + Date.now(),
+            content: data.content,
+            source: 'phone',
+            timestamp: data.timestamp || Date.now()
+          });
+          if (clipboardHistory.length > 25) clipboardHistory.pop();
+          renderClipboardHistory(clipboardHistory);
+        }
+
+        // Actionable notification with 1-click Copy to PC
+        const preview = data.content.length > 28 ? data.content.substring(0, 28) + '...' : data.content;
+        showToast(`📱 Copied on phone: "${preview}"`, 'info', {
+          label: 'Copy to PC',
+          onClick: () => {
+            copyToNativeClipboard(data.content, null, 'Copied');
+          }
+        });
+      } else {
+        // Originated from desktop (Windows Ctrl+C background sync)
+        // Record in history log without overwriting Phone UI or firing phone toast
+        if (!clipboardHistory.length || clipboardHistory[0].content !== data.content) {
+          clipboardHistory.unshift({
+            id: 'clip_' + Date.now(),
+            content: data.content,
+            source: 'desktop',
+            timestamp: data.timestamp || Date.now()
+          });
+          if (clipboardHistory.length > 25) clipboardHistory.pop();
+          renderClipboardHistory(clipboardHistory);
+        }
+      }
+    });
+
+    socket.on('clipboard:history-cleared', () => {
+      clipboardHistory = [];
+      renderClipboardHistory(clipboardHistory);
+      showToast('Clipboard history cleared', 'info');
+    });
+
     socket.on('logs:history', (data) => {
       if (data && Array.isArray(data.logs) && data.logs.length > 0) {
         logHistory = data.logs;
@@ -722,6 +999,25 @@ document.addEventListener('DOMContentLoaded', () => {
       logHistory.push(entry);
       if (logHistory.length > 500) logHistory.shift();
       appendTerminalLog(entry);
+    });
+  }
+
+  function fetchClipboardState() {
+    if (!socket) return;
+    socket.emit('clipboard:get-state', (res) => {
+      if (res && res.success) {
+        if (res.lastPhoneContent) {
+          const lastPhoneItem = (res.history || []).find((h) => h.source === 'mobile' || h.source === 'phone');
+          updatePhoneClipUI(res.lastPhoneContent, lastPhoneItem ? lastPhoneItem.timestamp : null);
+        }
+        if (Array.isArray(res.history)) {
+          clipboardHistory = res.history.map((item) => ({
+            ...item,
+            source: (item.source === 'mobile' || item.source === 'phone') ? 'phone' : 'desktop'
+          }));
+          renderClipboardHistory(clipboardHistory);
+        }
+      }
     });
   }
 

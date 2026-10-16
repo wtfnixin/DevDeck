@@ -42,6 +42,15 @@
             <span>Deck Apps</span>
           </button>
 
+          <button class="nav-item" data-page="page-clipboard">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <path d="M9 12h6M9 16h4"/>
+            </svg>
+            <span>Clipboard</span>
+          </button>
+
           <button class="nav-item" data-page="page-terminal">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="4 17 10 11 4 5"/>
@@ -188,6 +197,62 @@
                   </div>
                 </div>
 
+              </div>
+            </div>
+          </section>
+
+          <!-- ========================================================
+               CLIPBOARD TRANSCEIVER (Quick Access Card)
+               ======================================================== -->
+          <section class="card" id="card-clipboard-transceiver">
+            <div class="card-title-row" style="margin-bottom: 12px;">
+              <div class="title-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#55B9AA" stroke-width="2">
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <path d="M9 12h6M9 16h4"/>
+                </svg>
+              </div>
+              <div class="title-text">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <h2>Phone Clipboard Stream</h2>
+                  <span class="status-pill active" id="clipboard-quick-status-pill">
+                    <span class="pulse-dot"></span> LIVE SYNC ACTIVE
+                  </span>
+                </div>
+                <p>Instant access to text copied on your phone. Text you copy on PC (Ctrl+C) automatically syncs to your phone.</p>
+              </div>
+              <button class="terminal-ctrl-btn" id="pairing-view-clipboard-btn" style="margin-left: auto;">
+                <span>Full History →</span>
+              </button>
+            </div>
+
+            <!-- Single Full-Width Box: Received from Phone -->
+            <div class="clipboard-box received-box full-width">
+              <div class="clip-box-header">
+                <div class="clip-tag phone-tag">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="5" y="2" width="14" height="20" rx="3"/>
+                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                  </svg>
+                  <span>LATEST COPIED ON PHONE</span>
+                </div>
+                <span class="clip-time-text" id="quick-phone-clip-time">Waiting for copy...</span>
+              </div>
+
+              <div class="clip-body-preview" id="quick-phone-clip-content">
+                <span class="empty-hint">No content received from phone yet. Copy text on your phone to see it here!</span>
+              </div>
+
+              <div class="clip-box-footer">
+                <span class="clip-counter" id="quick-phone-clip-length">0 chars</span>
+                <button class="clip-action-btn primary" id="quick-copy-phone-btn" disabled>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  <span>Copy to PC</span>
+                </button>
               </div>
             </div>
           </section>
@@ -368,7 +433,96 @@
         </div>
 
         <!-- ========================================================
-             PAGE 3: LIVE AGENT TERMINAL (FULL VIEW)
+             PAGE: CLIPBOARD HUB & HISTORY
+             ======================================================== -->
+        <div class="page-view" id="page-clipboard">
+          <!-- Card 1: Active Transceiver -->
+          <section class="card" id="card-clipboard-main">
+            <div class="card-title-row">
+              <div class="title-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#55B9AA" stroke-width="2">
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <path d="M9 12h6M9 16h4"/>
+                </svg>
+              </div>
+              <div class="title-text">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <h2>Clipboard Synchronization Hub</h2>
+                  <span class="status-pill active">
+                    <span class="pulse-dot"></span> REAL-TIME SYNC
+                  </span>
+                </div>
+                <p>Text copied on your phone appears below. Text copied on PC (Ctrl+C) automatically sends to your phone.</p>
+              </div>
+            </div>
+
+            <!-- Single Full-Width Box: Received from Phone -->
+            <div class="clipboard-box received-box full-width">
+              <div class="clip-box-header">
+                <div class="clip-tag phone-tag">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="5" y="2" width="14" height="20" rx="3"/>
+                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                  </svg>
+                  <span>LATEST RECEIVED FROM PHONE</span>
+                </div>
+                <span class="clip-time-text" id="full-phone-clip-time">Waiting for copy...</span>
+              </div>
+
+              <div class="clip-body-preview expanded" id="full-phone-clip-content">
+                <span class="empty-hint">No content received from phone yet. Copy text on your phone and it will appear here!</span>
+              </div>
+
+              <div class="clip-box-footer">
+                <span class="clip-counter" id="full-phone-clip-length">0 characters</span>
+                <button class="clip-action-btn primary" id="full-copy-phone-btn" disabled>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  <span>Copy to PC</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Card 2: Clipboard Sync History -->
+          <section class="card" id="card-clipboard-history" style="margin-top: 16px;">
+            <div class="terminal-card-header">
+              <div class="card-title-row" style="margin-bottom: 0;">
+                <div class="title-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9AA3A5" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <div class="title-text">
+                  <h2>Recent Clipboard History</h2>
+                  <p>Recent items synchronized between your PC and phone.</p>
+                </div>
+              </div>
+
+              <div class="terminal-actions">
+                <button class="terminal-ctrl-btn" id="clear-clipboard-history-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  <span>Clear History</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Inset List Container -->
+            <div class="clipboard-history-list" id="clipboard-history-container">
+              <div class="clipboard-history-empty">No sync history yet. Items copied on either device will appear here.</div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ========================================================
+             PAGE 4: LIVE AGENT TERMINAL (FULL VIEW)
              ======================================================== -->
         <div class="page-view" id="page-terminal">
           <section class="card" id="card-terminal-full" style="height: 100%; display: flex; flex-direction: column;">
