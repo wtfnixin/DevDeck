@@ -1,211 +1,187 @@
-# DevDeck ⚡
+<p align="center">
+  <img src="assets/devdeck-logo-horizontal.webp" alt="DevDeck Logo" width="340">
+</p>
 
-[![Latest Release](https://img.shields.io/github/v/release/wtfnixin/DevDeck?style=flat-square&color=55B9AA)](https://github.com/wtfnixin/DevDeck/releases/latest)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
-[![Good First Issues](https://img.shields.io/badge/issues-good%20first%20issue-7057ff?style=flat-square)](https://github.com/wtfnixin/DevDeck/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+<p align="center">
+  <strong>Customizable, local-first productivity deck and remote control ecosystem for developers.</strong>
+</p>
 
-DevDeck is a customizable, open-source productivity remote control suite (an open alternative to the Elgato Stream Deck). It allows developers and power users to control their PC, trigger complex workspace workflows, sync clipboard history in real-time, launch apps/websites, and control their desktop remotely using a mobile app, browser tab, or second device.
+<p align="center">
+  <a href="https://github.com/wtfnixin/DevDeck/releases/latest"><img src="https://img.shields.io/github/v/release/wtfnixin/DevDeck?style=flat-square&color=55B9AA" alt="Latest Release"></a>
+  <a href="https://github.com/wtfnixin/DevDeck/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/wtfnixin/DevDeck/release.yml?branch=main&style=flat-square&label=CI%2FCD&color=55B9AA" alt="Build Status"></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome"></a>
+  <a href="https://github.com/wtfnixin/DevDeck/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"><img src="https://img.shields.io/badge/issues-good%20first%20issue-7057ff?style=flat-square" alt="Good First Issues"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License: MIT"></a>
+</p>
 
-### 📥 Downloads
+---
 
-| Platform | Download Link | File |
+DevDeck is an open-source productivity remote control suite designed as an extensible, privacy-focused alternative to dedicated macro pads. It transforms smartphones, tablets, or secondary browser tabs into interactive control surfaces for your workstation.
+
+Trigger multi-step workspace routines, launch desktop software with automatically extracted high-resolution icons, bookmark URLs, synchronize system clipboards bidirectionally, and control cursor navigation through a multi-touch gesture pad—operating strictly over your local area network without external cloud services or telemetry.
+
+---
+
+## Downloads
+
+| Platform | Package | Type | Direct Download |
+| :--- | :--- | :--- | :--- |
+| **Android** | `DevDeck.apk` | Client Application | [Download APK](https://github.com/wtfnixin/DevDeck/releases/latest/download/DevDeck.apk) |
+| **Windows** | `DevDeckAgentSetup.exe` | Installer (Recommended) | [Download Setup](https://github.com/wtfnixin/DevDeck/releases/latest/download/DevDeckAgentSetup.exe) |
+| **Windows** | `devdeck-agent.exe` | Portable Executable | [Download Binary](https://github.com/wtfnixin/DevDeck/releases/latest/download/devdeck-agent.exe) |
+
+> [!NOTE]
+> The setup installer (`DevDeckAgentSetup.exe`) enables automatic in-app updates and Windows Start Menu registration. The portable binary runs directly from any location without installation.
+
+---
+
+## Features
+
+### Desktop GUI & Background Daemon
+* **Dark Interface:** Electron-based dashboard with real-time status reporting, port monitoring, and paired client counters.
+* **System Tray Integration:** Minimizes cleanly to the Windows system tray to maintain background macro execution while keeping the taskbar clear.
+* **Single-Instance Enforcement:** Automatically detects existing running instances and performs clean takeover without port conflicts.
+
+### In-App Auto-Updater
+* **Continuous Updates:** Native integration with `electron-updater` and GitHub Releases.
+* **In-App Notification:** Verifies updates silently in the background and provides an explicit "Restart & Update" flow via the Settings panel.
+
+### Deck Apps Manager
+* **Drag-and-Drop Binding:** Drop executable binaries (`.exe`) or shortcuts directly into the agent interface to register them as macros.
+* **Automatic Icon Extraction:** Extracts high-resolution executable icons and serves them directly over WebSockets to client devices.
+
+### Bidirectional Clipboard Synchronization
+* **Cross-Device Clipboard:** Copies content between your workstation and connected mobile device in real time.
+* **History Inspector:** Inspect recent clipboard entries from the desktop interface with quick-copy and history purging capabilities.
+
+### Diagnostic Terminal
+* **Live Log Stream:** Embedded logging terminal with real-time WebSocket event tracing.
+* **Filtering and Export:** Filter logs by severity level (`INFO`, `WARN`, `ERROR`), search with regular expressions, and copy session output with one click.
+
+### Stream Deck Interface
+* **Tactile Keycaps:** Recessed keycap design with instant touch feedback and multi-page layout navigation.
+* **Centered Iconography:** High-contrast icons optimized for readability on OLED and LCD mobile screens.
+
+### Virtual Gesture Pad
+* **Workstation Navigation:** Touchscreen trackpad with adjustable sensitivity and cursor acceleration.
+* **Custom Gestures:** Configurable multi-directional swipes, double-taps, and long-press shortcuts for window snapping, workspace switching, and desktop navigation.
+
+---
+
+## Security & Privacy
+
+DevDeck is designed to be local-first with zero data collection:
+
+* **Local Network Only:** All traffic is confined to your local Wi-Fi or Ethernet network. No packets are routed to external servers.
+* **No Telemetry:** The application contains no analytics, error trackers, or third-party tracking identifiers.
+* **Local Persistence:** Workspaces, configurations, and paired device records reside exclusively in your local SQLite database (`%APPDATA%\DevDeck\devdeck.db`).
+* **Authenticated Pairing:** Devices establish pairing through ephemeral tokens and HMAC-SHA256 signed JSON Web Tokens exchanged via QR code. Unauthenticated requests are rejected.
+
+---
+
+## Performance & Resource Utilization
+
+| Metric | Specification | Note |
 | :--- | :--- | :--- |
-| **Android Client** | [Download APK](https://github.com/wtfnixin/DevDeck/releases/latest/download/DevDeck.apk) | `DevDeck.apk` |
-| **Windows Desktop Agent (Installer)** | [Download Setup](https://github.com/wtfnixin/DevDeck/releases/latest/download/DevDeckAgentSetup.exe) | `DevDeckAgentSetup.exe` |
-| **Windows Desktop Agent (Standalone)** | [Download Executable](https://github.com/wtfnixin/DevDeck/releases/latest/download/devdeck-agent.exe) | `devdeck-agent.exe` |
+| **Idle CPU Usage** | **0.0% – 0.1%** | Event-driven WebSocket architecture with no busy-wait loops. |
+| **Agent Memory (Headless)** | **< 30 MB RAM** | Lightweight background service footprint. |
+| **Action Execution Latency** | **< 85 ms** | Direct Win32 C# micro-binaries bypass shell interpreter overhead. |
+| **Window Focus Latency** | **~50 ms** | Restores and brings application windows into focus natively. |
+| **Native Helper Size** | **~5.5 KB each** | Standalone C# helper utilities (`window-focus.exe`, `brightness-control.exe`). |
 
 ---
 
-## 🚀 Latest Updates (v1.1.0)
-* **Physical Hardware Deck Aesthetic**: 3D recessed keycaps and pagination controls.
-* **Icon-First Launchers**: Cleaned up button faces and centered icons without cluttered text.
-* **Desktop Agent Port `8081`**: Avoids Windows system service conflicts on `8080`.
-* **AppData Persistence**: Config and logs properly stored in `%APPDATA%\DevDeck`.
+## Repository Structure
+
+```
+DevDeck/
+├── android/                     # Android client build files and ProGuard configuration
+├── assets/                      # Brand assets, icons, and banners
+├── desktop-agent/               # Electron GUI and Node.js backend agent
+│   ├── electron-main.js         # Electron lifecycle, tray integration, updater logic
+│   ├── build-exe.js             # Automated packaging script for NSIS & portable builds
+│   ├── public/                  # Agent dashboard frontend (HTML5, CSS, WebSockets)
+│   ├── src/                     # TypeScript server implementation
+│   │   ├── socket/              # WebSocket communication handlers
+│   │   ├── services/            # Pairing, apps, clipboard, and workspace services
+│   │   └── utils/native/        # Native Win32 C# helpers (WindowFocus, Brightness)
+│   └── package.json             # Agent dependencies and run scripts
+├── lib/                         # Cross-platform Flutter client application
+│   ├── core/                    # Theme, networking, and security tokens
+│   └── features/                # Application modules (Dashboard, Pairing, Gestures)
+└── .github/workflows/           # Automated CI/CD release pipeline
+```
 
 ---
 
-
-## Key Features
-
-*   **Secure Device Pairing**: Instant connection setup using scanned QR Codes. No manual IP typing required.
-*   **Developer Workspace Flows**: Define custom macros and workspace launch sequences (e.g., launch a specific IDE, run a database server command, and open your project's GitHub repo in one tap).
-*   **Application Launcher**: Add any native PC executable and launch it remotely. DevDeck automatically extracts and streams the application's icon to the client.
-*   **Website Launcher**: Open bookmarked websites in your default browser. Features an integrated proxy that fetches the high-res favicon automatically.
-*   **Bidirectional Live Clipboard**: Instantly share clipboard contents between your mobile device and your desktop in the background.
-*   **Virtual Gesture Pad**: A remote trackpad supporting custom gesture bindings:
-    *   **Double Tap**: Configurable action.
-    *   **Long Press**: Context trigger.
-    *   **Swipe Gestures (Left/Right/Up/Down)**: Run system hotkeys (e.g., minimize windows, open Start Menu, undo actions).
-
----
-
-## Architecture
-
-*   **Frontend Client**: Built with **Flutter (Dart)** using the BLoC pattern. Targets Android (native APK), Web, and Windows.
-*   **Desktop Agent (Backend)**: Built with **Node.js (TypeScript)** using `socket.io` for WebSockets, and `better-sqlite3` for local configurations. It runs headlessly in the background, consuming less than 30MB of RAM (no heavy Electron wrapper needed).
-
----
-
-## 🔒 Security & Privacy: Local-First by Design
-
-DevDeck is engineered with a strict **local-first, privacy-by-design** philosophy. Unlike commercial macro controllers that require cloud accounts, background telemetry, or external servers:
-
-*   **🏠 100% Local Network (LAN Only)**: All communication between your mobile client and your desktop happens strictly within your local Wi-Fi / Ethernet network via WebSocket. No traffic ever leaves your home network.
-*   **🚫 Zero Cloud & Zero Telemetry**: DevDeck contains no analytics, tracking scripts, ad SDKs, or cloud relays. We do not collect, transmit, or store your personal data anywhere.
-*   **💾 Local Storage Only**: Your custom workspaces, pinned apps, gestures, and paired device records are stored exclusively on your own machine in a local SQLite database (`devdeck.db`).
-*   **🔐 Cryptographic Device Pairing**: Connections use ephemeral tokens and HMAC-signed JWTs generated dynamically via encrypted QR codes. Unauthenticated network requests are rejected automatically.
-*   **📋 Secure Live Clipboard**: Clipboard sharing operates peer-to-peer over your local network and is never logged or uploaded to any third party.
-
----
-
-## ⚡ Runtime Performance & Application Footprint
-
-DevDeck is built to be ultra-lean and instantaneous, avoiding the bloat and sluggishness of heavy commercial background utilities.
-
-### Resource Usage & Latency
-
-| Metric | DevDeck Specification | Benefit |
-| :--- | :--- | :--- |
-| **Idle CPU Usage** | **0.0% – 0.1%** | Event-driven WebSocket architecture; zero polling loops. |
-| **Desktop Agent RAM** | **< 30 MB** (headless background mode) | Runs silently in the background without hogging system memory. |
-| **Action Execution Latency** | **< 85 ms** | Native Win32 C# micro-binaries bypass slow PowerShell interpreters. |
-| **Window Activation Speed** | **~50 ms** | Restores and focuses existing windows natively. |
-
-### Application & Binary Sizes
-
-| Package | Typical Size | Description |
-| :--- | :--- | :--- |
-| **Android Client (`DevDeck.apk`)** | **~25 – 35 MB** | Complete mobile client with CameraX QR scanner, ML Kit, and responsive 3D deck. |
-| **Windows Standalone (`devdeck-agent.exe`)** | **~80 MB** | Self-contained executable with embedded Node 22 runtime and SQLite (no Node.js installation needed). |
-| **Windows Setup Installer (`DevDeckAgentSetup.exe`)** | **~20 MB** | High-efficiency LZMA compressed installer created via Inno Setup. |
-| **Native Win32 Micro-Helpers** | **~5.5 KB each** | Standalone C# helper binaries (`window-focus.exe`, `brightness-control.exe`). |
-
----
-
-## Getting Started (Development Mode)
+## Getting Started
 
 ### Prerequisites
-*   [Flutter SDK](https://docs.flutter.dev/get-started/install) (latest version)
-*   [Node.js](https://nodejs.org/) (v20+ recommended)`   
+* [Flutter SDK](https://docs.flutter.dev/get-started/install) (v3.19 or later)
+* [Node.js](https://nodejs.org/) (v20 LTS or later)
 
 ---
 
-### Step 1: Start the Desktop Agent
-1. Navigate to the `desktop-agent` folder:
+### Running the Desktop Agent
+
+1. Navigate to the agent directory:
    ```bash
    cd desktop-agent
-   ```
-2. Install the node packages:
-   ```bash
    npm install
    ```
-3. Run the agent in developer mode:
+2. Start the application:
    ```bash
+   # Launch GUI dashboard (Electron)
+   npm run gui
+
+   # Or run headlessly in terminal mode
    npm run dev
    ```
-   *The agent will spin up on port `8081` and output the active pairing QR code inside the terminal.*
+3. The agent starts on port `8081` and renders a pairing QR code in the interface or terminal.
 
 ---
 
-### Step 2: Launch the Client App
-1. Open the project root in your terminal.
-2. Launch the Flutter application:
+### Running the Client Application
+
+1. From the repository root, start the Flutter client:
    ```bash
    flutter run -d chrome
    ```
-   *(Or target an emulator/connected Android device).*
-3. Scan the terminal's QR code (or upload the generated QR PNG) inside the client application to pair the devices securely.
+   *(Or target an Android device / emulator).*
+2. Scan the QR code displayed by the Desktop Agent to establish an authenticated connection.
 
 ---
 
-## Building Standalone Production Releases
+## Building from Source
 
-### 1. Compile the Standalone Desktop Agent (.exe)
-You can package the Node.js agent into a single binary that doesn't require Node.js or npm to be installed on the destination PC.
+### Windows Desktop Agent
 
-1. Navigate to `desktop-agent` and build the source:
-   ```bash
-   npm run build
-   ```
-2. Recompile the SQLite native addon for Node 22 (the packaged target):
-   ```bash
-   npx prebuild-install --target=22.0.0 --platform=win32 --arch=x64 --runtime=node
-   ```
-3. Bundle the application into a standalone executable:
-   ```bash
-   npx @yao-pkg/pkg . --targets node22-win-x64 --output build/devdeck-agent.exe
-   ```
-*   **Result location**: `desktop-agent/build/devdeck-agent.exe`
-*   *Note: On first startup, the `.exe` will automatically generate a persistent `.env` file next to itself with a secure `JWT_SECRET` key.*
+Build the NSIS installer, portable binary, and updater manifest with:
 
-### 2. Build the Android Client (APK)
-1. Ensure your local PC has the [Android SDK](https://developer.android.com/studio) installed.
-2. Ensure the ProGuard configuration (`android/app/proguard-rules.pro`) is present to prevent the R8 shrinker from removing CameraX and Google ML Kit modules during optimization.
-3. Compile the release build:
-   ```bash
-   flutter build apk --release
-   ```
-*   **Result location**: `build/app/outputs/flutter-apk/app-release.apk` (packaged as `DevDeck.apk`)
-
----
-
-## Creating Windows Installers
-
-Once you've built `devdeck-agent.exe`, you can package it into a setup installer using these methods:
-
-### Method A: Windows Built-in Installer Wizard (IExpress)
-1. Press `Win + R`, type `iexpress`, and press Enter.
-2. Select **Create new Self Extraction Directive file** -> **Extract files and run an installation command**.
-3. Add `devdeck-agent.exe` as your package file.
-4. Set the installation run command to: `devdeck-agent.exe`.
-5. Save the output package as `DevDeckSetup.exe`.
-
-### Method B: PowerShell Script Installer
-Create an `install.ps1` script next to the executable:
-```powershell
-$InstallDir = "$env:USERPROFILE\AppData\Local\DevDeckAgent"
-if (!(Test-Path $InstallDir)) { New-Item -ItemType Directory -Force -Path $InstallDir }
-Copy-Item "devdeck-agent.exe" -Destination "$InstallDir\devdeck-agent.exe" -Force
-$WScriptShell = New-Object -ComObject WScript.Shell
-$Shortcut = $WScriptShell.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\DevDeckAgent.lnk")
-$Shortcut.TargetPath = "$InstallDir\devdeck-agent.exe"
-$Shortcut.WorkingDirectory = $InstallDir
-$Shortcut.Save()
-Write-Host "DevDeck Agent successfully installed to AppData and added to Startup!"
+```bash
+cd desktop-agent
+npm run build:exe
 ```
 
-### Method C: Inno Setup Wizard
-If you have **Inno Setup** installed, compile the `installer.iss` script to generate a standard installer:
-```ini
-[Setup]
-AppName=DevDeck Desktop Agent
-AppVersion=1.0.0
-DefaultDirName={userpf}\DevDeckAgent
-DefaultGroupName=DevDeck
-OutputDir=build
-OutputBaseFilename=DevDeckAgentSetup
-Compression=lzma
-SolidCompression=yes
+Artifacts produced:
+* `desktop-agent/build/DevDeckAgentSetup.exe` (NSIS Installer)
+* `desktop-agent/build/devdeck-agent.exe` (Portable Binary)
+* `desktop-agent/build/latest.yml` (Auto-updater Manifest)
 
-[Files]
-Source: "build\devdeck-agent.exe"; DestDir: "{app}"; Flags: ignoreversion
+### Android Client
 
-[Icons]
-Name: "{group}\DevDeck Agent"; Filename: "{app}\devdeck-agent.exe"
-Name: "{userstartup}\DevDeck Agent"; Filename: "{app}\devdeck-agent.exe"
+```bash
+flutter build apk --release
 ```
+* Artifact: `build/app/outputs/flutter-apk/app-release.apk` (packaged as `DevDeck.apk`).
 
 ---
 
-## 🤝 Contributing & Community
+## Contributing
 
-We love contributions! DevDeck is built by developers for developers. Whether you want to fix a bug, add a macro action, or polish the docs, we welcome your help:
+Contributions are welcome. To get started:
 
-* 📖 Check out our [Contributing Guide (CONTRIBUTING.md)](CONTRIBUTING.md) to get your local environment running.
-* 🏷️ Browse our [Good First Issues](https://github.com/wtfnixin/DevDeck/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) for beginner-friendly tasks.
-* 📜 Read our [Code of Conduct (CODE_OF_CONDUCT.md)](CODE_OF_CONDUCT.md).
-* 🔒 Review our [Security Policy (SECURITY.md)](SECURITY.md).
-
-*Once your pull request is reviewed and merged into `main`, our CI/CD pipeline will automatically run all tests, build the Android APK, package the Windows installer, and publish a new production release!*
-
+* Consult the [Contributing Guide](CONTRIBUTING.md) for local development workflows.
+* Review open issues marked [Good First Issue](https://github.com/wtfnixin/DevDeck/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+* Read the [Code of Conduct](CODE_OF_CONDUCT.md).
+* Review our [Security Policy](SECURITY.md).
