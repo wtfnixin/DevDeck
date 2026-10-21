@@ -201,9 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
       checkUpdatesBtn.addEventListener('click', () => {
         if (settingsUpdateStatus) settingsUpdateStatus.textContent = 'Checking for updates...';
         ipcRenderer.invoke('app:check-for-updates').then((res) => {
-          if (!res.success && res.message) {
-            if (settingsUpdateStatus) settingsUpdateStatus.textContent = res.message;
-            showToast(res.message, 'info');
+          if (!res.success) {
+            const errMsg = res.error || res.message || 'Failed to check for updates';
+            if (settingsUpdateStatus) settingsUpdateStatus.textContent = errMsg;
+            showToast(errMsg, 'info');
           }
         }).catch((err) => {
           if (settingsUpdateStatus) settingsUpdateStatus.textContent = err.message;

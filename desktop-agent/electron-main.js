@@ -366,6 +366,15 @@ function createWindow() {
 
   mainWindow.loadURL(`http://localhost:${activePort}`);
 
+  // Open external links in default system browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const { shell } = require('electron');
+    if (url.startsWith('https:') || url.startsWith('http:')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
   // Minimize to tray on close
   mainWindow.on('close', (event) => {
     if (!app.isQuitting) {
@@ -397,6 +406,17 @@ function setupAutoUpdater() {
   autoUpdater.logger = console;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = false;
+
+  try {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'wtfnixin',
+      repo: 'DevDeck',
+    });
+  } catch (e) {
+    console.warn('AutoUpdater setFeedURL note:', e.message);
+  }
 
   autoUpdater.on('checking-for-update', () => {
     console.log('🔍 Checking for DevDeck updates...');
@@ -450,7 +470,13 @@ function setupAutoUpdater() {
       .then((result) => {
         if (result.response === 0) {
           app.isQuitting = true;
-          autoUpdater.quitAndInstall(false, true);
+          try {
+            autoUpdater.quitAndInstall(false, true);
+          } catch (e) {
+            console.error('Failed to quit and install:', e);
+            const { shell } = require('electron');
+            shell.openExternal('https://github.com/wtfnixin/DevDeck/releases/latest');
+          }
         }
       });
   });
@@ -510,10 +536,26 @@ ipcMain.handle('app:check-for-updates', async () => {
 ipcMain.handle('app:install-update', () => {
   if (autoUpdater && app.isPackaged) {
     app.isQuitting = true;
-    autoUpdater.quitAndInstall(false, true);
-    return { success: true };
+    try {
+      autoUpdater.quitAndInstall(false, true);
+      return { success: true };
+    } catch (e) {
+      console.error('Failed to quit and install:', e);
+      const { shell } = require('electron');
+      shell.openExternal('https://github.com/wtfnixin/DevDeck/releases/latest');
+      return { success: false, error: e.message };
+    }
   }
   return { success: false };
+});
+
+ipcMain.handle('app:open-external', (event, url) => {
+  const { shell } = require('electron');
+  if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+    shell.openExternal(url);
+    return true;
+  }
+  return false;
 });
 
 // ---------------------------------------------------------------------------

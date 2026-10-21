@@ -18,8 +18,22 @@ if (fs.existsSync(electronNativePath)) {
 const binDir = path.join(__dirname, 'bin');
 fs.mkdirSync(binDir, { recursive: true });
 
-// 3. Package with electron-builder
-console.log('📦 Bundling DevDeck GUI Desktop Application (NSIS Installer & Portable Executable)...');
+// 3. Sync version from environment if provided (BUILD_VERSION or GITHUB_RUN_NUMBER)
+const pkgPath = path.join(__dirname, 'package.json');
+const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+
+let targetVersion = process.env.BUILD_VERSION || (process.env.GITHUB_RUN_NUMBER ? `1.0.${process.env.GITHUB_RUN_NUMBER}` : null);
+if (targetVersion) {
+  targetVersion = targetVersion.replace(/^v/, '').trim();
+  if (targetVersion && targetVersion !== pkg.version) {
+    console.log(`🏷️ Synchronizing package.json version: ${pkg.version} -> ${targetVersion}`);
+    pkg.version = targetVersion;
+    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+  }
+}
+
+// 4. Package with electron-builder
+console.log(`📦 Bundling DevDeck GUI Desktop Application v${pkg.version} (NSIS Installer & Portable Executable)...`);
 try {
   execSync('npx electron-builder --win --publish never', { stdio: 'inherit', cwd: __dirname });
   console.log('✅ DevDeck GUI application & setup installer built successfully!');
@@ -29,14 +43,14 @@ try {
   const latestYmlPath = path.join(__dirname, 'build', 'latest.yml');
   if (fs.existsSync(setupExePath)) {
     const crypto = require('crypto');
-    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+    const updatedPkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     const fileBuffer = fs.readFileSync(setupExePath);
     const sha512 = crypto.createHash('sha512').update(fileBuffer).digest('base64');
     const size = fs.statSync(setupExePath).size;
     const releaseDate = new Date().toISOString();
 
     const yamlContent = [
-      `version: ${pkg.version || '1.0.0'}`,
+      `version: ${updatedPkg.version || '1.0.0'}`,
       `files:`,
       `  - url: DevDeckAgentSetup.exe`,
       `    sha512: ${sha512}`,
@@ -48,7 +62,7 @@ try {
     ].join('\n');
 
     fs.writeFileSync(latestYmlPath, yamlContent, 'utf8');
-    console.log('✅ Generated latest.yml for auto-updater release.');
+    console.log(`✅ Generated latest.yml for auto-updater release (v${updatedPkg.version}).`);
   }
 } catch (error) {
   console.error('❌ Build failed:', error.message);

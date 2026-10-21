@@ -1,6 +1,6 @@
 {
   "name": "devdeck-desktop-agent",
-  "version": "1.0.0",
+  "version": "1.0.29",
   "description": "Desktop agent for DevDeck personal productivity remote control",
   "author": "wtfnixin",
   "main": "electron-main.js",
