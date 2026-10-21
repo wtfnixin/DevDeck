@@ -79,4 +79,12 @@ app.*.map.json
 !SECURITY.md
 !.github/**/*.md
 
+# Raw brand assets and extractions
+/assets/extracted/
+/assets/mockup and logo.png
+
+# Python cache
+**/__pycache__/
+
+
 

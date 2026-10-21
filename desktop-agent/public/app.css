@@ -112,8 +112,11 @@ html, body {
 }
 
 .brand-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 6px rgba(85, 185, 170, 0.3));
 }
 
 .brand-text {
@@ -330,6 +333,13 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.title-icon img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: block;
 }
 
 .title-text h2 {
