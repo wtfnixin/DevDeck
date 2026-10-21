@@ -79,9 +79,14 @@ def main():
     desktop_public = resolve_path('desktop-agent', 'public')
     os.makedirs(desktop_public, exist_ok=True)
     
-    # Desktop icon (512x512)
+    # Desktop icon (512x512 PNG + multi-res ICO for Windows .exe)
     desktop_icon = create_app_icon(512)
     desktop_icon.save(os.path.join(desktop_public, 'icon.png'), 'PNG')
+    desktop_icon.save(
+        os.path.join(desktop_public, 'icon.ico'),
+        format='ICO',
+        sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+    )
     
     # Copy active brand icon to desktop public
     icon_src = resolve_path('assets', 'extracted', 'devdeck-logo-icon.webp')

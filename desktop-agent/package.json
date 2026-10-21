@@ -39,7 +39,7 @@
           ]
         }
       ],
-      "icon": "public/icon.png"
+      "icon": "public/icon.ico"
     },
     "nsis": {
       "oneClick": false,

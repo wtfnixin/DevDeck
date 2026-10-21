@@ -7,7 +7,7 @@ OutputDir=build
 OutputBaseFilename=DevDeckAgentSetup
 Compression=lzma
 SolidCompression=yes
-SetupIconFile=
+SetupIconFile=public\icon.ico
 
 [Files]
 Source: "build\devdeck-agent.exe"; DestDir: "{app}"; Flags: ignoreversion
