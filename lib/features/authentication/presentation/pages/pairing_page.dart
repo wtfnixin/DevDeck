@@ -293,7 +293,15 @@ class _PairingPageState extends State<PairingPage> with SingleTickerProviderStat
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            Center(
+              child: Image.asset(
+                'assets/devdeck-logo-horizontal.webp',
+                height: 36,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 20),
             const Text(
               'Enter PC Agent Host Details',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

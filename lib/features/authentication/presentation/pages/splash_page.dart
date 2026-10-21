@@ -35,18 +35,19 @@ class _SplashPageState extends State<SplashPage> {
           }
         }
       },
-      child: const Scaffold(
+      child: Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.grid_view_rounded,
-                size: 80,
-                color: AppTheme.primaryColor,
+              Image.asset(
+                'assets/devdeck-logo-icon.webp',
+                width: 88,
+                height: 82,
+                fit: BoxFit.contain,
               ),
-              SizedBox(height: 24),
-              Text(
+              const SizedBox(height: 20),
+              const Text(
                 'DEVDECK',
                 style: TextStyle(
                   fontSize: 28,
@@ -55,17 +56,17 @@ class _SplashPageState extends State<SplashPage> {
                   color: AppTheme.textPrimary,
                 ),
               ),
-              SizedBox(height: 8),
-              Text(
-                'PC Remote Companion',
+              const SizedBox(height: 8),
+              const Text(
+                'Personal Productivity Controller',
                 style: TextStyle(
                   fontSize: 14,
                   color: AppTheme.textSecondary,
                   letterSpacing: 1.5,
                 ),
               ),
-              SizedBox(height: 48),
-              CircularProgressIndicator(
+              const SizedBox(height: 48),
+              const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
               ),
             ],

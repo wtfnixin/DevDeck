@@ -39,14 +39,26 @@ class _DashboardPageState extends State<DashboardPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: const Text(
-          'DEVDECK',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2.5,
-            color: Colors.white,
-          ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/devdeck-logo-icon.webp',
+              height: 22,
+              width: 22,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'DEVDECK',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2.5,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
         actions: [
           // Settings glass button
