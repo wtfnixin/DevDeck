@@ -130,6 +130,7 @@ def main():
         folder_path = os.path.join(android_res, folder)
         if os.path.exists(folder_path):
             icon_img = create_app_icon(size)
+            icon_img.save(os.path.join(folder_path, 'launcher_icon.png'), 'PNG')
             icon_img.save(os.path.join(folder_path, 'ic_launcher.png'), 'PNG')
             
     # Android adaptive icon foregrounds

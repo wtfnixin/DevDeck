@@ -1,6 +1,6 @@
 {
-    "name": "devdeck",
-    "short_name": "devdeck",
+    "name": "DevDeck",
+    "short_name": "DevDeck",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
