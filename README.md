@@ -42,6 +42,12 @@ Trigger multi-step workspace routines, launch desktop software with automaticall
 * **System Tray Integration:** Minimizes cleanly to the Windows system tray to maintain background macro execution while keeping the taskbar clear.
 * **Single-Instance Enforcement:** Automatically detects existing running instances and performs clean takeover without port conflicts.
 
+<p align="center">
+  <img src="assets/screenshots/desktop-home.webp" alt="DevDeck Desktop Agent - Pairing and Status Hub" width="85%">
+  <br>
+  <em>The Desktop Agent command center, showing active network endpoints, server telemetry, and dynamic QR code pairing.</em>
+</p>
+
 ### In-App Auto-Updater
 * **Continuous Updates:** Native integration with `electron-updater` and GitHub Releases.
 * **In-App Notification:** Verifies updates silently in the background and provides an explicit "Restart & Update" flow via the Settings panel.
@@ -54,6 +60,12 @@ Trigger multi-step workspace routines, launch desktop software with automaticall
 * **Cross-Device Clipboard:** Copies content between your workstation and connected mobile device in real time.
 * **History Inspector:** Inspect recent clipboard entries from the desktop interface with quick-copy and history purging capabilities.
 
+<p align="center">
+  <img src="assets/screenshots/desktop-clipboard.webp" alt="DevDeck Desktop Agent - Live Clipboard Transceiver" width="85%">
+  <br>
+  <em>The Live Clipboard transceiver and historical timeline for bidirectional mobile-to-desktop clipboard synchronization.</em>
+</p>
+
 ### Diagnostic Terminal
 * **Live Log Stream:** Embedded logging terminal with real-time WebSocket event tracing.
 * **Filtering and Export:** Filter logs by severity level (`INFO`, `WARN`, `ERROR`), search with regular expressions, and copy session output with one click.
@@ -61,6 +73,12 @@ Trigger multi-step workspace routines, launch desktop software with automaticall
 ### Stream Deck Interface
 * **Tactile Keycaps:** Recessed keycap design with instant touch feedback and multi-page layout navigation.
 * **Centered Iconography:** High-contrast icons optimized for readability on OLED and LCD mobile screens.
+
+<p align="center">
+  <img src="assets/screenshots/mobile-deck.webp" alt="DevDeck Mobile Client - Tactile Stream Deck Interface" width="85%">
+  <br>
+  <em>The DevDeck mobile tactile macro pad, featuring multi-page app launchers, custom action grids, and zero-latency WebSocket execution.</em>
+</p>
 
 ### Virtual Gesture Pad
 * **Workstation Navigation:** Touchscreen trackpad with adjustable sensitivity and cursor acceleration.
