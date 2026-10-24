@@ -34,14 +34,14 @@ export function runMigrations(): void {
         {
           id: crypto.randomUUID(),
           gesture_type: 'swipe_left',
-          action_type: 'run_command',
-          payload: JSON.stringify({ command: 'powershell -Command "(New-Object -ComObject Shell.Application).MinimizeAll()"' }) // Show Desktop fallback or send keys
+          action_type: 'switch_desktop',
+          payload: JSON.stringify({ direction: 'right' })
         },
         {
           id: crypto.randomUUID(),
           gesture_type: 'swipe_right',
-          action_type: 'run_command',
-          payload: JSON.stringify({ command: 'powershell -Command "(New-Object -ComObject Shell.Application).UndoMinimizeAll()"' })
+          action_type: 'switch_desktop',
+          payload: JSON.stringify({ direction: 'left' })
         },
         {
           id: crypto.randomUUID(),
@@ -81,6 +81,12 @@ export function runMigrations(): void {
       
       db.prepare("UPDATE gestures SET payload = ? WHERE gesture_type = 'swipe_down'")
         .run(JSON.stringify({ command: 'powershell -Command "(New-Object -ComObject Shell.Application).ToggleDesktop()"' }));
+
+      db.prepare("UPDATE gestures SET action_type = 'switch_desktop', payload = ? WHERE gesture_type = 'swipe_left'")
+        .run(JSON.stringify({ direction: 'right' }));
+
+      db.prepare("UPDATE gestures SET action_type = 'switch_desktop', payload = ? WHERE gesture_type = 'swipe_right'")
+        .run(JSON.stringify({ direction: 'left' }));
     } catch (dbErr) {
       logger.warn('Failed to perform incremental gesture mappings update:', dbErr);
     }

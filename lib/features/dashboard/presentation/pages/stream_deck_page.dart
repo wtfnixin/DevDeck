@@ -47,16 +47,13 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
 
   // Multi-touch 3-finger gesture tracking for virtual desktop switching
   final Map<int, Offset> _activePointers = {};
-  final Map<int, Offset> _threeFingerStartPositions = {};
+  final Map<int, Offset> _pointerStartPositions = {};
   bool _hasTriggeredThreeFinger = false;
 
   void _onPointerDown(PointerDownEvent event) {
     _activePointers[event.pointer] = event.position;
+    _pointerStartPositions[event.pointer] = event.position;
     if (_activePointers.length >= 3) {
-      _threeFingerStartPositions.clear();
-      _activePointers.forEach((pointerId, pos) {
-        _threeFingerStartPositions[pointerId] = pos;
-      });
       _hasTriggeredThreeFinger = false;
     }
   }
@@ -69,7 +66,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
       int validFingers = 0;
 
       for (final entry in _activePointers.entries) {
-        final start = _threeFingerStartPositions[entry.key];
+        final start = _pointerStartPositions[entry.key];
         if (start != null) {
           totalDx += (entry.value.dx - start.dx);
           validFingers++;
@@ -78,7 +75,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
 
       if (validFingers >= 3) {
         final avgDx = totalDx / validFingers;
-        const double swipeThreshold = 50.0;
+        const double swipeThreshold = 40.0;
 
         if (avgDx < -swipeThreshold) {
           // 3-finger swipe left -> switch to next desktop (right)
@@ -95,16 +92,16 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
 
   void _onPointerUp(PointerUpEvent event) {
     _activePointers.remove(event.pointer);
-    _threeFingerStartPositions.remove(event.pointer);
-    if (_activePointers.isEmpty) {
+    _pointerStartPositions.remove(event.pointer);
+    if (_activePointers.length < 3) {
       _hasTriggeredThreeFinger = false;
     }
   }
 
   void _onPointerCancel(PointerCancelEvent event) {
     _activePointers.remove(event.pointer);
-    _threeFingerStartPositions.remove(event.pointer);
-    if (_activePointers.isEmpty) {
+    _pointerStartPositions.remove(event.pointer);
+    if (_activePointers.length < 3) {
       _hasTriggeredThreeFinger = false;
     }
   }

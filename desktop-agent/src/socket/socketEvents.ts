@@ -459,6 +459,28 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
         const actionPayload = JSON.parse(gesture.payload);
         logger.info(`Executing action for gesture ${payload.gestureType}: ${gesture.actionType}`);
 
+        if (gesture.actionType === 'switch_desktop') {
+          const direction = actionPayload.direction === 'left' ? 'left' : 'right';
+          DesktopManager.switchDesktop(direction, callback);
+          return;
+        }
+
+        // Intercept legacy or fallback swipe_left / swipe_right MinimizeAll commands and upgrade to native desktop switching
+        if (
+          (payload.gestureType === 'swipe_left' || payload.gestureType === 'swipe_right') &&
+          (
+            gesture.actionType === 'switch_desktop' ||
+            (gesture.actionType === 'run_command' &&
+             typeof actionPayload?.command === 'string' &&
+             (actionPayload.command.includes('MinimizeAll') || actionPayload.command.includes('UndoMinimizeAll')))
+          )
+        ) {
+          const direction = payload.gestureType === 'swipe_left' ? 'right' : 'left';
+          logger.info(`⚡ Upgrading legacy gesture ${payload.gestureType} to native virtual desktop switch (${direction})`);
+          DesktopManager.switchDesktop(direction, callback);
+          return;
+        }
+
         if (gesture.actionType === 'run_command' && actionPayload.command) {
           exec(actionPayload.command, (err) => {
             if (err) logger.error(`Gesture command failed: ${actionPayload.command}`, err);
