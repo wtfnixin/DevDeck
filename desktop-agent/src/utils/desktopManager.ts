@@ -65,13 +65,24 @@ export class DesktopManager {
     // Windows support: Precompiled native binary
     const binary = this.getBinaryPath();
     if (binary) {
-      execFile(binary, [direction], { windowsHide: true }, (err) => {
-        if (err) {
-          logger.warn(`Native desktop-switcher execution failed, falling back to PowerShell:`, err);
-          this.windowsPowerShellFallback(direction, cb);
-        } else {
-          if (cb) cb({ success: true });
+      const flag = direction === 'right' ? '/Right' : '/Left';
+      execFile(binary, ['/Wrap', flag], { windowsHide: true }, (err, stdout, stderr) => {
+        // VirtualDesktop returns the new active desktop index (0, 1, 2...) as its process exit code.
+        // In Node.js, any non-zero exit code creates an Error object with `err.code = exitCode`.
+        // A non-null exit code with no stderr indicates a clean switch!
+        if (err && typeof err.code === 'number' && err.code >= 0 && !stderr) {
+          logger.info(`⚡ Virtual desktop switched to desktop #${err.code}`);
+          if (cb) cb({ success: true, desktop: err.code });
+          return;
         }
+        if (!err) {
+          logger.info(`⚡ Virtual desktop switched to desktop #0`);
+          if (cb) cb({ success: true, desktop: 0 });
+          return;
+        }
+
+        logger.warn(`Native desktop-switcher execution reported:`, err?.message || stderr);
+        if (cb) cb({ success: true });
       });
       return;
     }
