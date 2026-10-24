@@ -14,6 +14,7 @@ Source: "build\devdeck-agent.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "build\keypresser.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "build\window-focus.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "build\brightness-control.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "build\desktop-switcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\DevDeck Agent"; Filename: "{app}\devdeck-agent.exe"

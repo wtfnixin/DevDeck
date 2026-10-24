@@ -17,6 +17,7 @@ import { exec } from 'child_process';
 import path from 'path';
 import { BrightnessManager } from '../utils/brightnessManager';
 import { VolumeManager } from '../utils/volumeManager';
+import { DesktopManager } from '../utils/desktopManager';
 
 function broadcastDeviceStatus(io: Server): void {
   try {
@@ -533,6 +534,20 @@ export function registerSocketEvents(io: Server, socket: Socket): void {
         if (cb) cb({ success: false, error: error.message });
       }
     });
+
+    // System controls: Virtual Desktop Switch (Immediate)
+    socket.on('desktop:switch', (dataOrCallback?: any, callback?: (res: any) => void) => {
+      const cb = typeof dataOrCallback === 'function' ? dataOrCallback : (typeof callback === 'function' ? callback : undefined);
+      const payload = typeof dataOrCallback === 'object' ? dataOrCallback : {};
+      try {
+        const direction = payload?.direction === 'left' ? 'left' : 'right';
+        DesktopManager.switchDesktop(direction, cb);
+      } catch (error: any) {
+        logger.error('desktop:switch error:', error);
+        if (cb) cb({ success: false, error: error.message });
+      }
+    });
+
     
   } else {
     logger.info(`🔌 Unauthenticated client connected [Socket ID: ${socket.id}]. Awaiting pairing...`);

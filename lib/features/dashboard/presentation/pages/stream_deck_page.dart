@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/socket_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/dependency_injection/injection_container.dart';
@@ -40,12 +39,94 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
   bool _isLoading = true;
   bool _isEditMode = false;
 
-  Offset? _dragStart;
   String? _activeGestureFeedback;
   IconData? _activeGestureIcon;
   Timer? _feedbackTimer;
   final PageController _pageController = PageController();
   int _currentPage = 0;
+
+  // Multi-touch 3-finger gesture tracking for virtual desktop switching
+  final Map<int, Offset> _activePointers = {};
+  final Map<int, Offset> _threeFingerStartPositions = {};
+  bool _hasTriggeredThreeFinger = false;
+
+  void _onPointerDown(PointerDownEvent event) {
+    _activePointers[event.pointer] = event.position;
+    if (_activePointers.length >= 3) {
+      _threeFingerStartPositions.clear();
+      _activePointers.forEach((pointerId, pos) {
+        _threeFingerStartPositions[pointerId] = pos;
+      });
+      _hasTriggeredThreeFinger = false;
+    }
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    _activePointers[event.pointer] = event.position;
+
+    if (_activePointers.length >= 3 && !_hasTriggeredThreeFinger) {
+      double totalDx = 0;
+      int validFingers = 0;
+
+      for (final entry in _activePointers.entries) {
+        final start = _threeFingerStartPositions[entry.key];
+        if (start != null) {
+          totalDx += (entry.value.dx - start.dx);
+          validFingers++;
+        }
+      }
+
+      if (validFingers >= 3) {
+        final avgDx = totalDx / validFingers;
+        const double swipeThreshold = 50.0;
+
+        if (avgDx < -swipeThreshold) {
+          // 3-finger swipe left -> switch to next desktop (right)
+          _hasTriggeredThreeFinger = true;
+          _triggerDesktopSwitch('right');
+        } else if (avgDx > swipeThreshold) {
+          // 3-finger swipe right -> switch to previous desktop (left)
+          _hasTriggeredThreeFinger = true;
+          _triggerDesktopSwitch('left');
+        }
+      }
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    _activePointers.remove(event.pointer);
+    _threeFingerStartPositions.remove(event.pointer);
+    if (_activePointers.isEmpty) {
+      _hasTriggeredThreeFinger = false;
+    }
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    _activePointers.remove(event.pointer);
+    _threeFingerStartPositions.remove(event.pointer);
+    if (_activePointers.isEmpty) {
+      _hasTriggeredThreeFinger = false;
+    }
+  }
+
+  void _triggerDesktopSwitch(String direction) {
+    HapticFeedback.mediumImpact();
+
+    // Prevent PageView from scrolling away
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(_currentPage);
+    }
+
+    // Visual HUD feedback (glassmorphic indicator)
+    if (direction == 'right') {
+      _showFeedback('Desktop Right', Icons.arrow_forward_rounded);
+    } else {
+      _showFeedback('Desktop Left', Icons.arrow_back_rounded);
+    }
+
+    // Zero-delay socket emission to desktop agent
+    _socketService.emit('desktop:switch', {'direction': direction});
+  }
 
   void _showFeedback(String message, IconData icon) {
     _feedbackTimer?.cancel();
@@ -529,7 +610,13 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B11),
-      body: Stack(
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: _onPointerDown,
+        onPointerMove: _onPointerMove,
+        onPointerUp: _onPointerUp,
+        onPointerCancel: _onPointerCancel,
+        child: Stack(
         children: [
           // Background Gradient
           Container(
@@ -712,6 +799,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
               ),
             ),
         ],
+      ),
       ),
     );
   }

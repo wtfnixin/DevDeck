@@ -111,6 +111,17 @@ jobs:
           }
           Copy-Item $outBrightness "desktop-agent\bin\brightness-control.exe" -Force
 
+          # 4. Desktop Switcher Helper
+          $srcDesktopSwitch = Join-Path $PWD "desktop-agent\src\utils\native\DesktopSwitcher.cs"
+          $outDesktopSwitch = Join-Path $PWD "desktop-agent\build\desktop-switcher.exe"
+          if (Test-Path $srcDesktopSwitch) {
+            & $csc "/target:winexe" "/out:$outDesktopSwitch" "$srcDesktopSwitch"
+          }
+          if (-not (Test-Path $outDesktopSwitch) -and (Test-Path "desktop-agent\bin\desktop-switcher.exe")) {
+            Copy-Item "desktop-agent\bin\desktop-switcher.exe" $outDesktopSwitch -Force
+          }
+          Copy-Item $outDesktopSwitch "desktop-agent\bin\desktop-switcher.exe" -Force
+
       - name: Set Release Version in package.json
         working-directory: desktop-agent
         run: npm version 1.0.${{ github.run_number }} --no-git-tag-version --allow-same-version
