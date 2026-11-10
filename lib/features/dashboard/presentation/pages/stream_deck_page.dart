@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/network/socket_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/dependency_injection/injection_container.dart';
+import '../../../../core/utils/three_finger_swipe_detector.dart';
 
 enum DeckKeyType { app, website, workspace }
 
@@ -46,65 +47,25 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
   int _currentPage = 0;
 
   // Multi-touch 3-finger gesture tracking for virtual desktop switching
-  final Map<int, Offset> _activePointers = {};
-  final Map<int, Offset> _pointerStartPositions = {};
-  bool _hasTriggeredThreeFinger = false;
-
-  void _onPointerDown(PointerDownEvent event) {
-    _activePointers[event.pointer] = event.position;
-    _pointerStartPositions[event.pointer] = event.position;
-    if (_activePointers.length >= 3) {
-      _hasTriggeredThreeFinger = false;
-    }
-  }
-
-  void _onPointerMove(PointerMoveEvent event) {
-    _activePointers[event.pointer] = event.position;
-
-    if (_activePointers.length >= 3 && !_hasTriggeredThreeFinger) {
-      double totalDx = 0;
-      int validFingers = 0;
-
-      for (final entry in _activePointers.entries) {
-        final start = _pointerStartPositions[entry.key];
-        if (start != null) {
-          totalDx += (entry.value.dx - start.dx);
-          validFingers++;
+  late final ThreeFingerSwipeDetector _swipeDetector = ThreeFingerSwipeDetector(
+    swipeThreshold: 36.0,
+    onSwipe: (direction) {
+      _triggerDesktopSwitch(
+        direction == ThreeFingerSwipeDirection.left ? 'right' : 'left',
+      );
+    },
+    onMultiTouchStateChanged: (isMultiTouch) {
+      if (isMultiTouch && _pageController.hasClients) {
+        final pageOffset = _pageController.page;
+        if (pageOffset != null && pageOffset != _currentPage.toDouble()) {
+          _pageController.jumpToPage(_currentPage);
         }
       }
-
-      if (validFingers >= 3) {
-        final avgDx = totalDx / validFingers;
-        const double swipeThreshold = 40.0;
-
-        if (avgDx < -swipeThreshold) {
-          // 3-finger swipe left -> switch to next desktop (right)
-          _hasTriggeredThreeFinger = true;
-          _triggerDesktopSwitch('right');
-        } else if (avgDx > swipeThreshold) {
-          // 3-finger swipe right -> switch to previous desktop (left)
-          _hasTriggeredThreeFinger = true;
-          _triggerDesktopSwitch('left');
-        }
+      if (mounted) {
+        setState(() {});
       }
-    }
-  }
-
-  void _onPointerUp(PointerUpEvent event) {
-    _activePointers.remove(event.pointer);
-    _pointerStartPositions.remove(event.pointer);
-    if (_activePointers.length < 3) {
-      _hasTriggeredThreeFinger = false;
-    }
-  }
-
-  void _onPointerCancel(PointerCancelEvent event) {
-    _activePointers.remove(event.pointer);
-    _pointerStartPositions.remove(event.pointer);
-    if (_activePointers.length < 3) {
-      _hasTriggeredThreeFinger = false;
-    }
-  }
+    },
+  );
 
   void _triggerDesktopSwitch(String direction) {
     HapticFeedback.mediumImpact();
@@ -145,11 +106,12 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
   void initState() {
     super.initState();
     
-    // Force horizontal (landscape) orientation when entering the Stream Deck
+    // Force horizontal (landscape) immersive mode when entering the Stream Deck
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     _loadAllKeys();
 
@@ -167,7 +129,11 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
     _feedbackTimer?.cancel();
     _pageController.dispose();
 
-    // Restore portrait and landscape support when exiting the Stream Deck
+    // Restore default orientation and system bars when exiting the Stream Deck
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -277,6 +243,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
   }
 
   void _deleteKey(DeckKey key) {
+    _swipeDetector.reset();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -609,10 +576,10 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
       backgroundColor: const Color(0xFF080B11),
       body: Listener(
         behavior: HitTestBehavior.translucent,
-        onPointerDown: _onPointerDown,
-        onPointerMove: _onPointerMove,
-        onPointerUp: _onPointerUp,
-        onPointerCancel: _onPointerCancel,
+        onPointerDown: _swipeDetector.handlePointerDown,
+        onPointerMove: _swipeDetector.handlePointerMove,
+        onPointerUp: _swipeDetector.handlePointerUp,
+        onPointerCancel: _swipeDetector.handlePointerCancel,
         child: Stack(
         children: [
           // Background Gradient
@@ -642,7 +609,14 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
                         Expanded(
                           child: PageView(
                             controller: _pageController,
+                            physics: _swipeDetector.isMultiTouchActive
+                                ? const NeverScrollableScrollPhysics()
+                                : const PageScrollPhysics(),
                             onPageChanged: (page) {
+                              if (_swipeDetector.isMultiTouchActive) {
+                                _pageController.jumpToPage(_currentPage);
+                                return;
+                              }
                               setState(() {
                                 _currentPage = page;
                               });
@@ -683,7 +657,10 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
             left: 16,
             child: SafeArea(
               child: GestureDetector(
-                onTap: () => context.go('/dashboard'),
+                onTap: () {
+                  if (_swipeDetector.shouldSuppressSingleFinger) return;
+                  context.go('/dashboard');
+                },
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -707,7 +684,10 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: _loadAllKeys,
+                    onTap: () {
+                      if (_swipeDetector.shouldSuppressSingleFinger) return;
+                      _loadAllKeys();
+                    },
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -724,6 +704,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () {
+                      if (_swipeDetector.shouldSuppressSingleFinger) return;
                       setState(() {
                         _isEditMode = !_isEditMode;
                       });
@@ -887,6 +868,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
   }) {
     return GestureDetector(
       onTap: () {
+        if (_swipeDetector.shouldSuppressSingleFinger) return;
         HapticFeedback.mediumImpact();
         _socketService.emit(event, null);
         _showFeedback(name, icon);
@@ -1009,6 +991,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
       children: [
         GestureDetector(
           onTap: () {
+            if (_swipeDetector.shouldSuppressSingleFinger) return;
             if (_isEditMode) {
               _deleteKey(key);
             } else {
@@ -1055,7 +1038,10 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
             top: -4,
             right: -4,
             child: GestureDetector(
-              onTap: () => _deleteKey(key),
+              onTap: () {
+                if (_swipeDetector.shouldSuppressSingleFinger) return;
+                _deleteKey(key);
+              },
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
@@ -1083,7 +1069,10 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
 
   Widget _buildAddKeyButton() {
     return GestureDetector(
-      onTap: () => _showAddActionSheet(context),
+      onTap: () {
+        if (_swipeDetector.shouldSuppressSingleFinger) return;
+        _showAddActionSheet(context);
+      },
       child: Container(
         padding: const EdgeInsets.all(6.0), // Spacing/margin around inner add key card
         decoration: BoxDecoration(
@@ -1137,6 +1126,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
   }
 
   void _showAddActionSheet(BuildContext context) {
+    _swipeDetector.reset();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

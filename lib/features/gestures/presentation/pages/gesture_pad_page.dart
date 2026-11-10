@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/network/socket_service.dart';
-import '../../../../core/dependency_injection/injection_container.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/three_finger_swipe_detector.dart';
 import '../bloc/gesture_bloc.dart';
 import '../bloc/gesture_event.dart';
 import '../bloc/gesture_state.dart';
@@ -19,8 +18,6 @@ class GesturePadPage extends StatefulWidget {
 class _GesturePadPageState extends State<GesturePadPage> {
   double _startX = 0.0;
   double _startY = 0.0;
-  double _lastX = 0.0;
-  double _lastY = 0.0;
   bool _swipeTriggered = false;
   String _activeFeedbackText = 'Swipe or Tap here';
   Color _feedbackColor = AppTheme.textSecondary.withOpacity(0.5);
@@ -35,63 +32,16 @@ class _GesturePadPageState extends State<GesturePadPage> {
   ];
 
   // Multi-touch 3-finger gesture tracking for virtual desktop switching
-  final Map<int, Offset> _activePointers = {};
-  final Map<int, Offset> _pointerStartPositions = {};
-  bool _hasTriggeredThreeFinger = false;
-
-  void _onPointerDown(PointerDownEvent event) {
-    _activePointers[event.pointer] = event.position;
-    _pointerStartPositions[event.pointer] = event.position;
-    if (_activePointers.length >= 3) {
-      _hasTriggeredThreeFinger = false;
-    }
-  }
-
-  void _onPointerMove(PointerMoveEvent event) {
-    _activePointers[event.pointer] = event.position;
-
-    if (_activePointers.length >= 3 && !_hasTriggeredThreeFinger) {
-      double totalDx = 0;
-      int validFingers = 0;
-
-      for (final entry in _activePointers.entries) {
-        final start = _pointerStartPositions[entry.key];
-        if (start != null) {
-          totalDx += (entry.value.dx - start.dx);
-          validFingers++;
-        }
+  late final ThreeFingerSwipeDetector _swipeDetector = ThreeFingerSwipeDetector(
+    swipeThreshold: 36.0,
+    onSwipe: (direction) {
+      if (direction == ThreeFingerSwipeDirection.left) {
+        _triggerGesture('swipe_left', 'Desktop Right');
+      } else {
+        _triggerGesture('swipe_right', 'Desktop Left');
       }
-
-      if (validFingers >= 3) {
-        final avgDx = totalDx / validFingers;
-        const double swipeThreshold = 40.0;
-
-        if (avgDx < -swipeThreshold) {
-          _hasTriggeredThreeFinger = true;
-          _triggerGesture('swipe_left', 'Desktop Right');
-        } else if (avgDx > swipeThreshold) {
-          _hasTriggeredThreeFinger = true;
-          _triggerGesture('swipe_right', 'Desktop Left');
-        }
-      }
-    }
-  }
-
-  void _onPointerUp(PointerUpEvent event) {
-    _activePointers.remove(event.pointer);
-    _pointerStartPositions.remove(event.pointer);
-    if (_activePointers.length < 3) {
-      _hasTriggeredThreeFinger = false;
-    }
-  }
-
-  void _onPointerCancel(PointerCancelEvent event) {
-    _activePointers.remove(event.pointer);
-    _pointerStartPositions.remove(event.pointer);
-    if (_activePointers.length < 3) {
-      _hasTriggeredThreeFinger = false;
-    }
-  }
+    },
+  );
 
   void _triggerGesture(String gestureType, String displayLabel) {
     HapticFeedback.mediumImpact();
@@ -99,12 +49,6 @@ class _GesturePadPageState extends State<GesturePadPage> {
       _activeFeedbackText = '$displayLabel Triggered!';
       _feedbackColor = AppTheme.secondaryColor;
     });
-
-    if (gestureType == 'swipe_left') {
-      sl<SocketService>().emit('desktop:switch', {'direction': 'right'});
-    } else if (gestureType == 'swipe_right') {
-      sl<SocketService>().emit('desktop:switch', {'direction': 'left'});
-    }
 
     context.read<GestureBloc>().add(GestureTriggerEvent(gestureType));
 
@@ -131,10 +75,10 @@ class _GesturePadPageState extends State<GesturePadPage> {
       ),
       body: Listener(
         behavior: HitTestBehavior.translucent,
-        onPointerDown: _onPointerDown,
-        onPointerMove: _onPointerMove,
-        onPointerUp: _onPointerUp,
-        onPointerCancel: _onPointerCancel,
+        onPointerDown: _swipeDetector.handlePointerDown,
+        onPointerMove: _swipeDetector.handlePointerMove,
+        onPointerUp: _swipeDetector.handlePointerUp,
+        onPointerCancel: _swipeDetector.handlePointerCancel,
         child: BlocListener<GestureBloc, GestureState>(
           listener: (context, state) {
             if (state is GestureTriggerFailure) {
@@ -153,16 +97,13 @@ class _GesturePadPageState extends State<GesturePadPage> {
                 flex: 3,
                 child: GestureDetector(
                   onPanStart: (details) {
+                    if (_swipeDetector.shouldSuppressSingleFinger) return;
                     _startX = details.localPosition.dx;
                     _startY = details.localPosition.dy;
-                    _lastX = details.localPosition.dx;
-                    _lastY = details.localPosition.dy;
                     _swipeTriggered = false;
                   },
                   onPanUpdate: (details) {
-                    _lastX = details.localPosition.dx;
-                    _lastY = details.localPosition.dy;
-                    if (_swipeTriggered) return;
+                    if (_swipeDetector.shouldSuppressSingleFinger || _swipeTriggered) return;
 
                     final currentX = details.localPosition.dx;
                     final currentY = details.localPosition.dy;
@@ -188,8 +129,14 @@ class _GesturePadPageState extends State<GesturePadPage> {
                       }
                     }
                   },
-                  onDoubleTap: () => _triggerGesture('double_tap', 'Double Tap'),
-                  onLongPress: () => _triggerGesture('long_press', 'Long Press'),
+                  onDoubleTap: () {
+                    if (_swipeDetector.shouldSuppressSingleFinger) return;
+                    _triggerGesture('double_tap', 'Double Tap');
+                  },
+                  onLongPress: () {
+                    if (_swipeDetector.shouldSuppressSingleFinger) return;
+                    _triggerGesture('long_press', 'Long Press');
+                  },
                   child: Container(
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceColor,
