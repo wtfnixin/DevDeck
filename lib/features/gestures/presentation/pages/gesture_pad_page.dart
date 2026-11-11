@@ -33,7 +33,7 @@ class _GesturePadPageState extends State<GesturePadPage> {
 
   // Multi-touch 3-finger gesture tracking for virtual desktop switching
   late final ThreeFingerSwipeDetector _swipeDetector = ThreeFingerSwipeDetector(
-    swipeThreshold: 36.0,
+    swipeThreshold: 26.0,
     onSwipe: (direction) {
       if (direction == ThreeFingerSwipeDirection.left) {
         _triggerGesture('swipe_left', 'Desktop Right');
@@ -73,37 +73,44 @@ class _GesturePadPageState extends State<GesturePadPage> {
           onPressed: () => context.go('/dashboard'),
         ),
       ),
-      body: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: _swipeDetector.handlePointerDown,
-        onPointerMove: _swipeDetector.handlePointerMove,
-        onPointerUp: _swipeDetector.handlePointerUp,
-        onPointerCancel: _swipeDetector.handlePointerCancel,
-        child: BlocListener<GestureBloc, GestureState>(
-          listener: (context, state) {
-            if (state is GestureTriggerFailure) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.message), backgroundColor: Colors.redAccent),
-              );
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
+      body: BlocListener<GestureBloc, GestureState>(
+        listener: (context, state) {
+          if (state is GestureTriggerFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message), backgroundColor: Colors.redAccent),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // 1. Interactive Pad
               Expanded(
                 flex: 3,
-                child: GestureDetector(
-                  onPanStart: (details) {
-                    if (_swipeDetector.shouldSuppressSingleFinger) return;
-                    _startX = details.localPosition.dx;
-                    _startY = details.localPosition.dy;
-                    _swipeTriggered = false;
-                  },
-                  onPanUpdate: (details) {
-                    if (_swipeDetector.shouldSuppressSingleFinger || _swipeTriggered) return;
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: _swipeDetector.handlePointerDown,
+                  onPointerMove: _swipeDetector.handlePointerMove,
+                  onPointerUp: _swipeDetector.handlePointerUp,
+                  onPointerCancel: _swipeDetector.handlePointerCancel,
+                  child: GestureDetector(
+                    onPanStart: (details) {
+                      if (_swipeDetector.isMultiTouchActive ||
+                          _swipeDetector.shouldSuppressSingleFinger) {
+                        return;
+                      }
+                      _startX = details.localPosition.dx;
+                      _startY = details.localPosition.dy;
+                      _swipeTriggered = false;
+                    },
+                    onPanUpdate: (details) {
+                      if (_swipeDetector.isMultiTouchActive ||
+                          _swipeDetector.shouldSuppressSingleFinger ||
+                          _swipeTriggered) {
+                        return;
+                      }
 
                     final currentX = details.localPosition.dx;
                     final currentY = details.localPosition.dy;
@@ -201,6 +208,7 @@ class _GesturePadPageState extends State<GesturePadPage> {
                   ),
                 ),
               ),
+              ),
               const SizedBox(height: 24),
 
               // 2. Gesture Mappings Card
@@ -272,7 +280,6 @@ class _GesturePadPageState extends State<GesturePadPage> {
               ),
             ],
           ),
-        ),
         ),
       ),
     );

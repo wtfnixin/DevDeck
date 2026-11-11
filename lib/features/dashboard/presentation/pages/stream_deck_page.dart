@@ -17,6 +17,7 @@ class DeckKey {
   final String iconName;
   final DeckKeyType type;
   final String payload;
+  final Uint8List? decodedIconBytes;
 
   DeckKey({
     required this.id,
@@ -24,7 +25,54 @@ class DeckKey {
     required this.iconName,
     required this.type,
     required this.payload,
+  }) : decodedIconBytes = _decodeIconData(iconName);
+
+  static Uint8List? _decodeIconData(String iconName) {
+    if (!iconName.startsWith('data:image/')) return null;
+    try {
+      final parts = iconName.split(',');
+      if (parts.length < 2) return null;
+      return base64Decode(parts[1]);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// PageScrollPhysics that locks user horizontal dragging during multi-touch
+/// without changing physics runtimeType or disposing ScrollPosition.
+class _LockablePageScrollPhysics extends PageScrollPhysics {
+  const _LockablePageScrollPhysics({
+    required this.isLocked,
+    super.parent,
   });
+
+  final bool Function() isLocked;
+
+  @override
+  _LockablePageScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _LockablePageScrollPhysics(
+      isLocked: isLocked,
+      parent: buildParent(ancestor),
+    );
+  }
+
+  @override
+  bool shouldAcceptUserOffset(ScrollMetrics position) {
+    if (isLocked()) return false;
+    return super.shouldAcceptUserOffset(position);
+  }
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    if (isLocked()) return 0.0;
+    return super.applyPhysicsToUserOffset(position, offset);
+  }
+
+  @override
+  Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
+    return super.createBallisticSimulation(position, isLocked() ? 0.0 : velocity);
+  }
 }
 
 class StreamDeckPage extends StatefulWidget {
@@ -45,10 +93,22 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
   Timer? _feedbackTimer;
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  Size _viewportSize = Size.zero;
 
-  // Multi-touch 3-finger gesture tracking for virtual desktop switching
+  bool _isPositionInMiddleZone(Offset position) {
+    if (_viewportSize.isEmpty) return true;
+    final dxRatio = position.dx / _viewportSize.width;
+    final dyRatio = position.dy / _viewportSize.height;
+    return dxRatio >= 0.15 &&
+        dxRatio <= 0.85 &&
+        dyRatio >= 0.08 &&
+        dyRatio <= 0.92;
+  }
+
+  // Multi-touch 3-finger gesture tracking scoped to the middle + nearby portion
   late final ThreeFingerSwipeDetector _swipeDetector = ThreeFingerSwipeDetector(
-    swipeThreshold: 36.0,
+    swipeThreshold: 26.0,
+    isPositionInActiveZone: _isPositionInMiddleZone,
     onSwipe: (direction) {
       _triggerDesktopSwitch(
         direction == ThreeFingerSwipeDirection.left ? 'right' : 'left',
@@ -61,10 +121,11 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
           _pageController.jumpToPage(_currentPage);
         }
       }
-      if (mounted) {
-        setState(() {});
-      }
     },
+  );
+
+  late final _LockablePageScrollPhysics _pagePhysics = _LockablePageScrollPhysics(
+    isLocked: () => _swipeDetector.isMultiTouchActive,
   );
 
   void _triggerDesktopSwitch(String direction) {
@@ -233,7 +294,9 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
     }
 
     _socketService.emit(eventName, payload);
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
       SnackBar(
         content: Text('Triggered: ${key.name}'),
         duration: const Duration(milliseconds: 800),
@@ -456,33 +519,29 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
       );
     }
 
-    if (key.iconName.startsWith('data:image/')) {
-      try {
-        final base64Str = key.iconName.split(',')[1];
-        final bytes = base64Decode(base64Str);
-        return Center(
-          child: SizedBox(
-            width: 92,
-            height: 92,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Image.memory(
-                bytes,
-                fit: BoxFit.contain, // Fit to container box cleanly
-                filterQuality: FilterQuality.medium, // Sharper scaling
-                isAntiAlias: true,
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Icon(
-                    Icons.image_rounded,
-                    color: Colors.white,
-                    size: 68,
-                  ),
+    if (key.decodedIconBytes != null) {
+      return Center(
+        child: SizedBox(
+          width: 92,
+          height: 92,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Image.memory(
+              key.decodedIconBytes!,
+              fit: BoxFit.contain, // Fit to container box cleanly
+              filterQuality: FilterQuality.medium, // Sharper scaling
+              isAntiAlias: true,
+              errorBuilder: (context, error, stackTrace) => const Center(
+                child: Icon(
+                  Icons.image_rounded,
+                  color: Colors.white,
+                  size: 68,
                 ),
               ),
             ),
           ),
-        );
-      } catch (_) {}
+        ),
+      );
     }
 
     if (key.type == DeckKeyType.website) {
@@ -560,6 +619,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+    _viewportSize = Size(screenWidth, screenHeight);
     
     // Calculate aspect ratio dynamically so that the 4x2 grid fits perfectly in the available screen space.
     final availableHeight = screenHeight - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom - 60;
@@ -609,9 +669,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
                         Expanded(
                           child: PageView(
                             controller: _pageController,
-                            physics: _swipeDetector.isMultiTouchActive
-                                ? const NeverScrollableScrollPhysics()
-                                : const PageScrollPhysics(),
+                            physics: _pagePhysics,
                             onPageChanged: (page) {
                               if (_swipeDetector.isMultiTouchActive) {
                                 _pageController.jumpToPage(_currentPage);
@@ -729,48 +787,50 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
 
           // Gesture Feedback HUD overlay
           if (_activeGestureFeedback != null)
-            Center(
-              child: Container(
-                width: 160,
-                height: 140,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.75),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.12),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.55),
-                      blurRadius: 20,
-                      spreadRadius: 2,
+            IgnorePointer(
+              child: Center(
+                child: Container(
+                  width: 160,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.75),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.12),
+                      width: 1.5,
                     ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _activeGestureIcon,
-                          color: Colors.white,
-                          size: 46,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _activeGestureFeedback!,
-                          style: const TextStyle(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.55),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _activeGestureIcon,
                             color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                            size: 46,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          Text(
+                            _activeGestureFeedback!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -867,6 +927,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
     required String event,
   }) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         if (_swipeDetector.shouldSuppressSingleFinger) return;
         HapticFeedback.mediumImpact();
@@ -990,6 +1051,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
       clipBehavior: Clip.none,
       children: [
         GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             if (_swipeDetector.shouldSuppressSingleFinger) return;
             if (_isEditMode) {
@@ -1069,6 +1131,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
 
   Widget _buildAddKeyButton() {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         if (_swipeDetector.shouldSuppressSingleFinger) return;
         _showAddActionSheet(context);

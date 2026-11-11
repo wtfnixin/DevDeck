@@ -5,55 +5,84 @@ enum ThreeFingerSwipeDirection { left, right }
 
 /// Detects Mac-touchpad-style horizontal three-finger swipes across raw pointer events.
 ///
-/// Tracks average centroid displacement once three pointers engage, rejects
-/// predominantly vertical or pinch motions, and latches each stroke so one
-/// continuous swipe switches exactly one desktop until fingers lift.
+/// Supports restricting pointer enrollment to a specific active region (such as
+/// the center portion of the screen), preserves fast staggered motion when all
+/// three fingers land within [maxRestOriginAge], retains early-lifted finger
+/// displacements mid-stroke, and latches one trigger per stroke.
 class ThreeFingerSwipeDetector {
   ThreeFingerSwipeDetector({
-    this.swipeThreshold = 36.0,
+    this.swipeThreshold = 26.0,
+    this.maxRestOriginAge = const Duration(milliseconds: 250),
+    this.isPositionInActiveZone,
     required this.onSwipe,
     this.onMultiTouchStateChanged,
-  });
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
   final double swipeThreshold;
+  final Duration maxRestOriginAge;
+  final bool Function(Offset position)? isPositionInActiveZone;
   final void Function(ThreeFingerSwipeDirection direction) onSwipe;
   final void Function(bool isMultiTouchActive)? onMultiTouchStateChanged;
+  final DateTime Function() _clock;
 
   final Map<int, Offset> _activePointers = {};
+  final Map<int, Offset> _pointerOrigins = {};
+  final Map<int, DateTime> _pointerDownTimes = {};
+  final Map<int, Offset> _completedStrokeDeltas = {};
+
   int _peakPointersInStroke = 0;
   bool _threeFingerEngaged = false;
   bool _hasTriggeredInStroke = false;
-  double _accumulatedDx = 0.0;
-  double _accumulatedDy = 0.0;
-  DateTime? _lastMultiTouchEndTime;
+  DateTime? _lastThreeFingerEndTime;
 
-  /// True while two or more pointers are currently touching the screen.
+  /// True while two or more enrolled pointers are currently touching the active zone.
   bool get isMultiTouchActive => _activePointers.length >= 2;
 
-  /// True while a multi-touch stroke is active or immediately after it ends,
-  /// preventing single-finger taps or drags from firing concurrently.
+  /// True while a three-finger stroke is engaged or within 35ms of ending,
+  /// preventing accidental button taps from firing on finger lift without
+  /// blocking normal one- or two-finger interactions.
   bool get shouldSuppressSingleFinger {
-    if (_peakPointersInStroke >= 2) return true;
-    final endedAt = _lastMultiTouchEndTime;
+    if (_threeFingerEngaged || _peakPointersInStroke >= 3) return true;
+    final endedAt = _lastThreeFingerEndTime;
     if (endedAt == null) return false;
-    return DateTime.now().difference(endedAt) < const Duration(milliseconds: 180);
+    return _clock().difference(endedAt) < const Duration(milliseconds: 35);
   }
 
-  /// Records a pointer down event and engages three-finger tracking when >= 3 fingers touch.
+  /// Enrolls pointers touching inside [isPositionInActiveZone] and engages
+  /// three-finger detection once three pointers are active.
   void handlePointerDown(PointerDownEvent event) {
+    if (isPositionInActiveZone != null && !isPositionInActiveZone!(event.position)) {
+      return;
+    }
+
     final wasMultiTouch = isMultiTouchActive;
+    final now = _clock();
     _activePointers[event.pointer] = event.position;
+    _pointerOrigins[event.pointer] = event.position;
+    _pointerDownTimes[event.pointer] = now;
 
     if (_activePointers.length > _peakPointersInStroke) {
       _peakPointersInStroke = _activePointers.length;
     }
 
-    // Start measuring displacement cleanly once all 3 fingers are down so
-    // early drift from the first landing finger does not skew the swipe.
     if (!_threeFingerEngaged && _activePointers.length >= 3) {
       _threeFingerEngaged = true;
-      _accumulatedDx = 0.0;
-      _accumulatedDy = 0.0;
+      _completedStrokeDeltas.clear();
+
+      // Re-anchor pointers that rested idle longer than maxRestOriginAge while
+      // keeping recent staggered motion when all three fingers land together.
+      for (final id in _activePointers.keys) {
+        final downTime = _pointerDownTimes[id];
+        if (downTime != null && now.difference(downTime) > maxRestOriginAge) {
+          _pointerOrigins[id] = _activePointers[id]!;
+          _pointerDownTimes[id] = now;
+        }
+      }
+
+      if (!_hasTriggeredInStroke) {
+        _evaluateSwipe();
+      }
     }
 
     if (!wasMultiTouch && isMultiTouchActive) {
@@ -61,39 +90,19 @@ class ThreeFingerSwipeDetector {
     }
   }
 
-  /// Accumulates centroid movement across active pointers and triggers once past threshold.
+  /// Updates enrolled pointer movement and fires [onSwipe] once past threshold.
   void handlePointerMove(PointerMoveEvent event) {
-    final previous = _activePointers[event.pointer];
+    if (!_activePointers.containsKey(event.pointer)) {
+      return;
+    }
+
     _activePointers[event.pointer] = event.position;
 
-    if (!_threeFingerEngaged || _hasTriggeredInStroke || previous == null) {
+    if (!_threeFingerEngaged || _hasTriggeredInStroke) {
       return;
     }
 
-    final activeCount = _activePointers.length;
-    if (activeCount < 2) {
-      return;
-    }
-
-    final stepDx = event.position.dx - previous.dx;
-    final stepDy = event.position.dy - previous.dy;
-
-    _accumulatedDx += stepDx / activeCount;
-    _accumulatedDy += stepDy / activeCount;
-
-    final absDx = _accumulatedDx.abs();
-    final absDy = _accumulatedDy.abs();
-
-    // Require clear horizontal dominance ("almost same line") so vertical
-    // swipes do not misfire while tolerating natural finger arc.
-    if (absDx >= swipeThreshold && absDx >= absDy * 0.85) {
-      _hasTriggeredInStroke = true;
-      onSwipe(
-        _accumulatedDx < 0
-            ? ThreeFingerSwipeDirection.left
-            : ThreeFingerSwipeDirection.right,
-      );
-    }
+    _evaluateSwipe();
   }
 
   /// Handles pointer release.
@@ -106,36 +115,98 @@ class ThreeFingerSwipeDetector {
   void reset() {
     final wasMultiTouch = isMultiTouchActive;
     _activePointers.clear();
+    _pointerOrigins.clear();
+    _pointerDownTimes.clear();
+    _completedStrokeDeltas.clear();
     _peakPointersInStroke = 0;
     _threeFingerEngaged = false;
     _hasTriggeredInStroke = false;
-    _accumulatedDx = 0.0;
-    _accumulatedDy = 0.0;
     if (wasMultiTouch) {
       onMultiTouchStateChanged?.call(false);
     }
   }
 
+  void _evaluateSwipe() {
+    double totalDx = 0.0;
+    double totalDy = 0.0;
+    int count = 0;
+
+    for (final entry in _activePointers.entries) {
+      final origin = _pointerOrigins[entry.key];
+      if (origin != null) {
+        totalDx += (entry.value.dx - origin.dx);
+        totalDy += (entry.value.dy - origin.dy);
+        count++;
+      }
+    }
+
+    for (final delta in _completedStrokeDeltas.values) {
+      totalDx += delta.dx;
+      totalDy += delta.dy;
+      count++;
+    }
+
+    if (count < 3) return;
+
+    final avgDx = totalDx / count;
+    final avgDy = totalDy / count;
+    final absDx = avgDx.abs();
+    final absDy = avgDy.abs();
+
+    // Require clear horizontal intent ("almost same line") while staying
+    // forgiving of natural wrist/finger arc across the center zone.
+    if (absDx >= swipeThreshold && absDx >= absDy * 0.7) {
+      _hasTriggeredInStroke = true;
+      onSwipe(
+        avgDx < 0
+            ? ThreeFingerSwipeDirection.left
+            : ThreeFingerSwipeDirection.right,
+      );
+    }
+  }
+
   void _removePointer(int pointer) {
+    if (!_activePointers.containsKey(pointer)) {
+      return;
+    }
+
     final wasMultiTouch = isMultiTouchActive;
-    _activePointers.remove(pointer);
+    final lastPos = _activePointers.remove(pointer);
+    final origin = _pointerOrigins.remove(pointer);
+    _pointerDownTimes.remove(pointer);
+
+    // Keep displacement of an early-lifted finger if >= 2 fingers remain down
+    // so a fast flick completing with 2 remaining fingers still fires cleanly.
+    if (_threeFingerEngaged &&
+        !_hasTriggeredInStroke &&
+        _activePointers.length >= 2 &&
+        lastPos != null &&
+        origin != null) {
+      _completedStrokeDeltas[pointer] = lastPos - origin;
+    }
 
     if (wasMultiTouch && !isMultiTouchActive) {
       onMultiTouchStateChanged?.call(false);
     }
 
     if (_activePointers.length <= 1) {
-      // Allow starting a fresh 3-finger swipe even if 1 finger rests on screen,
-      // while resisting 3 -> 2 -> 3 mid-stroke finger bounce double triggers.
+      if (_threeFingerEngaged) {
+        _lastThreeFingerEndTime = _clock();
+      }
       _threeFingerEngaged = false;
       _hasTriggeredInStroke = false;
-      _accumulatedDx = 0.0;
-      _accumulatedDy = 0.0;
+      _completedStrokeDeltas.clear();
+
+      final now = _clock();
+      for (final id in _activePointers.keys) {
+        _pointerOrigins[id] = _activePointers[id]!;
+        _pointerDownTimes[id] = now;
+      }
     }
 
     if (_activePointers.isEmpty) {
-      if (_peakPointersInStroke >= 2) {
-        _lastMultiTouchEndTime = DateTime.now();
+      if (_peakPointersInStroke >= 3) {
+        _lastThreeFingerEndTime = _clock();
       }
       _peakPointersInStroke = 0;
     }
