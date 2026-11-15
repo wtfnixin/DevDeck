@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/dependency_injection/injection_container.dart';
+import '../../../../core/storage/secure_storage.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/three_finger_swipe_detector.dart';
 import '../bloc/gesture_bloc.dart';
@@ -31,17 +33,24 @@ class _GesturePadPageState extends State<GesturePadPage> {
     {'gesture': 'Long Press', 'action': 'Launch Calculator App'},
   ];
 
-  // Multi-touch 3-finger gesture tracking for virtual desktop switching
-  late final ThreeFingerSwipeDetector _swipeDetector = ThreeFingerSwipeDetector(
+  // Multi-touch gesture tracking for virtual desktop switching
+  late final MultiFingerSwipeDetector _swipeDetector = MultiFingerSwipeDetector(
+    requiredFingers: sl<SecureStorage>().getDesktopSwipeFingers(),
     swipeThreshold: 26.0,
     onSwipe: (direction) {
-      if (direction == ThreeFingerSwipeDirection.left) {
+      if (direction == DesktopSwipeDirection.left) {
         _triggerGesture('swipe_left', 'Desktop Right');
       } else {
         _triggerGesture('swipe_right', 'Desktop Left');
       }
     },
   );
+
+  @override
+  void initState() {
+    super.initState();
+    _swipeDetector.requiredFingers = sl<SecureStorage>().getDesktopSwipeFingers();
+  }
 
   void _triggerGesture(String gestureType, String displayLabel) {
     HapticFeedback.mediumImpact();

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/network/socket_service.dart';
+import '../../../../core/storage/secure_storage.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/dependency_injection/injection_container.dart';
 import '../../../../core/utils/three_finger_swipe_detector.dart';
@@ -105,13 +106,14 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
         dyRatio <= 0.92;
   }
 
-  // Multi-touch 3-finger gesture tracking scoped to the middle + nearby portion
-  late final ThreeFingerSwipeDetector _swipeDetector = ThreeFingerSwipeDetector(
+  // Multi-touch gesture tracking scoped to the middle + nearby portion
+  late final MultiFingerSwipeDetector _swipeDetector = MultiFingerSwipeDetector(
+    requiredFingers: sl<SecureStorage>().getDesktopSwipeFingers(),
     swipeThreshold: 26.0,
     isPositionInActiveZone: _isPositionInMiddleZone,
     onSwipe: (direction) {
       _triggerDesktopSwitch(
-        direction == ThreeFingerSwipeDirection.left ? 'right' : 'left',
+        direction == DesktopSwipeDirection.left ? 'right' : 'left',
       );
     },
     onMultiTouchStateChanged: (isMultiTouch) {
@@ -166,6 +168,7 @@ class _StreamDeckPageState extends State<StreamDeckPage> {
   @override
   void initState() {
     super.initState();
+    _swipeDetector.requiredFingers = sl<SecureStorage>().getDesktopSwipeFingers();
     
     // Force horizontal (landscape) immersive mode when entering the Stream Deck
     SystemChrome.setPreferredOrientations([
