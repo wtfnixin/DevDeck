@@ -535,32 +535,27 @@ class ConnectionStatusCard extends StatelessWidget {
         Color statusColor;
         String statusText;
         IconData statusIcon;
-        List<Color> gradientColors;
 
         switch (status) {
           case ConnectionStatus.connected:
             statusColor = AppTheme.secondaryColor;
             statusText = 'CONNECTED';
             statusIcon = Icons.wifi_rounded;
-            gradientColors = [const Color(0xFF0F172A), const Color(0xFF0F172A)];
             break;
           case ConnectionStatus.connecting:
             statusColor = Colors.orangeAccent;
             statusText = 'CONNECTING...';
             statusIcon = Icons.sync;
-            gradientColors = [const Color(0xFF0F172A), const Color(0xFF0F172A)];
             break;
           case ConnectionStatus.disconnected:
             statusColor = Colors.redAccent;
             statusText = 'DISCONNECTED';
             statusIcon = Icons.wifi_off_rounded;
-            gradientColors = [const Color(0xFF0F172A), const Color(0xFF0F172A)];
             break;
           case ConnectionStatus.pairingRequired:
             statusColor = AppTheme.primaryColor;
             statusText = 'PAIRING REQUIRED';
             statusIcon = Icons.phonelink_lock_rounded;
-            gradientColors = [const Color(0xFF0F172A), const Color(0xFF0F172A)];
             break;
         }
 

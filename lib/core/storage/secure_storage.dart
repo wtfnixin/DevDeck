@@ -9,6 +9,7 @@ class SecureStorage {
   static const String _keyToken = 'auth_token';
   static const String _keyDeviceId = 'device_id';
   static const String _keyDeviceName = 'device_name';
+  static const String _keyDesktopSwipeFingers = 'desktop_swipe_fingers';
 
   final Box _box;
 
@@ -68,4 +69,7 @@ class SecureStorage {
 
   bool getClipboardSyncEnabled() => _box.get('clipboard_sync_enabled', defaultValue: true) as bool;
   Future<void> setClipboardSyncEnabled(bool enabled) async => await _box.put('clipboard_sync_enabled', enabled);
+
+  int getDesktopSwipeFingers() => _box.get(_keyDesktopSwipeFingers, defaultValue: 2) as int;
+  Future<void> setDesktopSwipeFingers(int fingers) async => await _box.put(_keyDesktopSwipeFingers, fingers);
 }

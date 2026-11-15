@@ -19,11 +19,13 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _secureStorage = sl<SecureStorage>();
   late bool _clipboardEnabled;
+  late int _desktopSwipeFingers;
 
   @override
   void initState() {
     super.initState();
     _clipboardEnabled = _secureStorage.getClipboardSyncEnabled();
+    _desktopSwipeFingers = _secureStorage.getDesktopSwipeFingers();
   }
 
   @override
@@ -79,17 +81,34 @@ class _SettingsPageState extends State<SettingsPage> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.white.withOpacity(0.05)),
               ),
-              child: SwitchListTile(
-                value: _clipboardEnabled,
-                title: const Text('Clipboard Synchronization', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Share clipboard text automatically with your desktop', style: TextStyle(fontSize: 12)),
-                activeColor: AppTheme.primaryColor,
-                onChanged: (val) {
-                  setState(() {
-                    _clipboardEnabled = val;
-                  });
-                  context.read<ClipboardBloc>().add(ClipboardToggleSync(val));
-                },
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    value: _clipboardEnabled,
+                    title: const Text('Clipboard Synchronization', style: TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: const Text('Share clipboard text automatically with your desktop', style: TextStyle(fontSize: 12)),
+                    activeColor: AppTheme.primaryColor,
+                    onChanged: (val) {
+                      setState(() {
+                        _clipboardEnabled = val;
+                      });
+                      context.read<ClipboardBloc>().add(ClipboardToggleSync(val));
+                    },
+                  ),
+                  const Divider(color: Colors.white12, height: 1),
+                  ListTile(
+                    title: const Text(
+                      'Desktop Switch Gesture',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      _getSwipeGestureSubtitle(_desktopSwipeFingers),
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+                    onTap: () => _showSwipeGestureDialog(context),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 32),
@@ -148,6 +167,97 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
       ],
+    );
+  }
+
+  String _getSwipeGestureSubtitle(int fingers) {
+    switch (fingers) {
+      case 2:
+        return '2-Finger Swipe (Recommended for Mobile)';
+      case 3:
+        return '3-Finger Swipe (Mac trackpad style)';
+      default:
+        return 'Disabled';
+    }
+  }
+
+  void _showSwipeGestureDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Desktop Switch Gesture'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Switch Windows Virtual Desktops by flicking horizontally across the middle of the screen.',
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            RadioListTile<int>(
+              value: 2,
+              groupValue: _desktopSwipeFingers,
+              title: const Text('2-Finger Swipe', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                'Recommended for Mobile. Bypasses OEM 3-finger screenshot and split-screen shortcuts.',
+                style: TextStyle(fontSize: 11),
+              ),
+              activeColor: AppTheme.primaryColor,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _desktopSwipeFingers = val);
+                  _secureStorage.setDesktopSwipeFingers(val);
+                  Navigator.pop(dialogContext);
+                }
+              },
+            ),
+            RadioListTile<int>(
+              value: 3,
+              groupValue: _desktopSwipeFingers,
+              title: const Text('3-Finger Swipe', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                'Mac trackpad style. Requires phone 3-finger screenshot to be disabled in phone settings.',
+                style: TextStyle(fontSize: 11),
+              ),
+              activeColor: AppTheme.primaryColor,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _desktopSwipeFingers = val);
+                  _secureStorage.setDesktopSwipeFingers(val);
+                  Navigator.pop(dialogContext);
+                }
+              },
+            ),
+            RadioListTile<int>(
+              value: 0,
+              groupValue: _desktopSwipeFingers,
+              title: const Text('Disabled', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                'Turn off multi-touch desktop switching.',
+                style: TextStyle(fontSize: 11),
+              ),
+              activeColor: AppTheme.primaryColor,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _desktopSwipeFingers = val);
+                  _secureStorage.setDesktopSwipeFingers(val);
+                  Navigator.pop(dialogContext);
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 
