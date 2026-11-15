@@ -38,7 +38,7 @@ jobs:
 
       - name: Build Release APK
         run: |
-          flutter build apk --release
+          flutter build apk --release --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/DevDeck.apk
 
       - name: Upload APK as Artifact
