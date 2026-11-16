@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import '../network/socket_service.dart';
+import '../services/app_update_service.dart';
 import '../storage/secure_storage.dart';
 import '../../features/authentication/data/repositories/auth_repository_impl.dart';
 import '../../features/authentication/domain/repositories/auth_repository.dart';
@@ -19,6 +20,7 @@ Future<void> initInjection() async {
   // 1. Storage & Services (Async Initializers)
   final secureStorage = await SecureStorage.init();
   sl.registerSingleton<SecureStorage>(secureStorage);
+  sl.registerLazySingleton<AppUpdateService>(() => AppUpdateService(secureStorage: sl<SecureStorage>()));
 
   // 2. Core Network
   sl.registerLazySingleton<SocketService>(() => SocketService(sl<SecureStorage>()));

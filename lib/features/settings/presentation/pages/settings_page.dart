@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/dependency_injection/injection_container.dart';
+import '../../../../core/services/app_update_service.dart';
 import '../../../../core/storage/secure_storage.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../clipboard/presentation/bloc/clipboard_bloc.dart';
 import '../../../clipboard/presentation/bloc/clipboard_event.dart';
+import '../../../updater/presentation/widgets/update_dialog.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -18,14 +20,20 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final _secureStorage = sl<SecureStorage>();
+  final _updateService = sl<AppUpdateService>();
   late bool _clipboardEnabled;
   late int _desktopSwipeFingers;
+  String _currentAppVersion = 'Loading...';
+  bool _isCheckingUpdate = false;
 
   @override
   void initState() {
     super.initState();
     _clipboardEnabled = _secureStorage.getClipboardSyncEnabled();
     _desktopSwipeFingers = _secureStorage.getDesktopSwipeFingers();
+    _updateService.getCurrentVersion().then((ver) {
+      if (mounted) setState(() => _currentAppVersion = 'v$ver');
+    });
   }
 
   @override
@@ -108,6 +116,28 @@ class _SettingsPageState extends State<SettingsPage> {
                     trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
                     onTap: () => _showSwipeGestureDialog(context),
                   ),
+                  const Divider(color: Colors.white12, height: 1),
+                  ListTile(
+                    title: const Text(
+                      'Check for Updates',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      'Installed Version: $_currentAppVersion',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                    trailing: _isCheckingUpdate
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                            ),
+                          )
+                        : const Icon(Icons.refresh_rounded, color: AppTheme.textSecondary),
+                    onTap: _isCheckingUpdate ? null : _handleManualUpdateCheck,
+                  ),
                 ],
               ),
             ),
@@ -168,6 +198,26 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _handleManualUpdateCheck() async {
+    setState(() => _isCheckingUpdate = true);
+    final update = await _updateService.checkForUpdate();
+    if (!mounted) return;
+    setState(() => _isCheckingUpdate = false);
+
+    if (update != null) {
+      UpdateDialog.show(context, releaseInfo: update, isManualCheck: true);
+    } else {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("You are on the latest version ($_currentAppVersion)"),
+          backgroundColor: AppTheme.surfaceColor,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   String _getSwipeGestureSubtitle(int fingers) {

@@ -1,15 +1,19 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/dependency_injection/injection_container.dart';
 import '../../../../core/network/socket_service.dart';
+import '../../../../core/services/app_update_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../connection/presentation/bloc/connection_bloc.dart';
 import '../../../connection/presentation/bloc/connection_event.dart';
 import '../../../connection/presentation/bloc/connection_state.dart';
+import '../../../updater/presentation/widgets/update_dialog.dart';
 import 'package:devdeck/features/clipboard/presentation/bloc/clipboard_bloc.dart';
 import 'package:devdeck/features/clipboard/presentation/bloc/clipboard_event.dart';
 import 'package:devdeck/features/clipboard/presentation/bloc/clipboard_state.dart';
@@ -21,13 +25,62 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserver {
+  Timer? _periodicUpdateTimer;
+  bool _isCheckingUpdate = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     final connectionState = context.read<ConnectionBloc>().state;
     if (connectionState.status == ConnectionStatus.connected) {
       context.read<ClipboardBloc>().add(ClipboardStartSync());
+    }
+
+    // Proactively check for new GitHub releases after the dashboard settles
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) _checkAutomaticUpdate();
+      });
+    });
+
+    // Periodically re-check every 45 minutes while active
+    _periodicUpdateTimer = Timer.periodic(const Duration(minutes: 45), (_) {
+      if (mounted) _checkAutomaticUpdate();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _periodicUpdateTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _checkAutomaticUpdate();
+    }
+  }
+
+  Future<void> _checkAutomaticUpdate() async {
+    if (_isCheckingUpdate) return;
+    _isCheckingUpdate = true;
+    try {
+      final updateService = sl<AppUpdateService>();
+      final releaseInfo = await updateService.checkForUpdate();
+      if (releaseInfo != null && mounted) {
+        if (!updateService.isUpdateSnoozed(releaseInfo.version)) {
+          UpdateDialog.show(context, releaseInfo: releaseInfo);
+        }
+      }
+    } catch (_) {
+      // Background checks fail silently without interrupting the user
+    } finally {
+      _isCheckingUpdate = false;
     }
   }
 
