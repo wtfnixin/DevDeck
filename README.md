@@ -18,7 +18,7 @@
 
 DevDeck is an open-source productivity remote control suite designed as an extensible, privacy-focused alternative to dedicated macro pads. It transforms smartphones, tablets, or secondary browser tabs into interactive control surfaces for your workstation.
 
-Trigger multi-step workspace routines, launch desktop software with automatically extracted high-resolution icons, bookmark URLs, synchronize system clipboards bidirectionally, and control cursor navigation through a multi-touch gesture pad—operating strictly over your local area network without external cloud services or telemetry.
+Trigger multi-step workspace routines, launch desktop software with automatically extracted high-resolution icons, bookmark URLs, synchronize system clipboards bidirectionally, switch Windows Virtual Desktops with trackpad-style multi-finger gestures, and control cursor navigation through a multi-touch gesture pad—operating strictly over your local area network without external cloud services or telemetry.
 
 ---
 
@@ -31,7 +31,7 @@ Trigger multi-step workspace routines, launch desktop software with automaticall
 | **Windows** | `devdeck-agent.exe` | Portable Executable | [Download Binary](https://github.com/wtfnixin/DevDeck/releases/latest/download/devdeck-agent.exe) |
 
 > [!NOTE]
-> The setup installer (`DevDeckAgentSetup.exe`) enables automatic in-app updates and Windows Start Menu registration. The portable binary runs directly from any location without installation.
+> Both the Android client (`DevDeck.apk`) and the Windows setup installer (`DevDeckAgentSetup.exe`) feature built-in in-app auto-updaters directly connected to GitHub Releases. Once installed, future updates are delivered seamlessly in-app without requiring manual browser downloads. The portable Windows binary runs directly from any folder without installation.
 
 ---
 
@@ -48,9 +48,10 @@ Trigger multi-step workspace routines, launch desktop software with automaticall
   <em>The Desktop Agent command center, showing active network endpoints, server telemetry, and dynamic QR code pairing.</em>
 </p>
 
-### In-App Auto-Updater
-* **Continuous Updates:** Native integration with `electron-updater` and GitHub Releases.
-* **In-App Notification:** Verifies updates silently in the background and provides an explicit "Restart & Update" flow via the Settings panel.
+### In-App Auto-Updater (Desktop & Mobile)
+* **Desktop Agent:** Native integration with `electron-updater` and GitHub Releases. Silently verifies updates in the background and provides an explicit "Restart & Update" flow via the Settings panel.
+* **Android Mobile Client:** Automatic release discovery directly from GitHub Releases on app launch, resume, and active in-session intervals. Presents formatted release changelogs with live download progress tracking and triggers seamless in-place installation through Android's native package installer.
+* **Manual Update Checks:** Available at any time under the Settings panel on both desktop and mobile clients.
 
 ### Deck Apps Manager
 * **Drag-and-Drop Binding:** Drop executable binaries (`.exe`) or shortcuts directly into the agent interface to register them as macros.
@@ -73,6 +74,7 @@ Trigger multi-step workspace routines, launch desktop software with automaticall
 ### Stream Deck Interface
 * **Tactile Keycaps:** Recessed keycap design with instant touch feedback and multi-page layout navigation.
 * **Centered Iconography:** High-contrast icons optimized for readability on OLED and LCD mobile screens.
+* **Multi-Touch Virtual Desktop Switching:** Switch Windows Virtual Desktops instantly with a smooth, trackpad-style horizontal flick across the center of the screen. Supports 2-finger (recommended for mobile to bypass OEM screenshot shortcuts) or 3-finger (Mac-style) gestures with zero perceptible latency (<25 ms).
 
 <p align="center">
   <img src="assets/screenshots/mobile-deck.webp" alt="DevDeck Mobile Client - Tactile Stream Deck Interface" width="85%">
@@ -83,6 +85,7 @@ Trigger multi-step workspace routines, launch desktop software with automaticall
 ### Virtual Gesture Pad
 * **Workstation Navigation:** Touchscreen trackpad with adjustable sensitivity and cursor acceleration.
 * **Custom Gestures:** Configurable multi-directional swipes, double-taps, and long-press shortcuts for window snapping, workspace switching, and desktop navigation.
+* **Integrated Desktop Switching:** Built-in multi-touch horizontal swipe gestures for seamless desktop navigation directly from the interactive touch surface.
 
 ---
 
