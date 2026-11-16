@@ -10,6 +10,7 @@ class SecureStorage {
   static const String _keyDeviceId = 'device_id';
   static const String _keyDeviceName = 'device_name';
   static const String _keyDesktopSwipeFingers = 'desktop_swipe_fingers';
+  static const String _keySnoozedUpdateVersion = 'snoozed_update_version';
 
   final Box _box;
 
@@ -72,4 +73,7 @@ class SecureStorage {
 
   int getDesktopSwipeFingers() => _box.get(_keyDesktopSwipeFingers, defaultValue: 2) as int;
   Future<void> setDesktopSwipeFingers(int fingers) async => await _box.put(_keyDesktopSwipeFingers, fingers);
+
+  String? getSnoozedUpdateVersion() => _box.get(_keySnoozedUpdateVersion) as String?;
+  Future<void> setSnoozedUpdateVersion(String version) async => await _box.put(_keySnoozedUpdateVersion, version);
 }
